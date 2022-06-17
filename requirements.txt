@@ -1,0 +1,37 @@
+pytz
+requests~=2.27.1
+python-dotenv~=0.20.0
+ipython
+pandas~=1.4.2
+numpy~=1.22.3
+tqdm~=4.64.0
+tinkoff-investments
+tinkoff~=0.1.1
+
+# Django
+django~=3.2.13
+django-timezone-field 
+django-cors-headers
+django-debug-toolbar~=3.4.0
+whitenoise
+
+# Django 3.0 async requirements
+gunicorn
+uvicorn
+uvloop
+httptools
+
+# Databases
+psycopg2-binary
+dj-database-url
+
+# Distributed tasks
+celery~=5.2.6
+redis
+django-celery-beat
+
+# Telegram
+python-telegram-bot
+
+# monitoring
+# sentry-sdk
