@@ -17,11 +17,11 @@ from telegram.ext import (
 from dtb.celery import app  # event processing in async mode
 from dtb.settings import TELEGRAM_TOKEN, DEBUG
 
-from tgbot.handlers.utils import files, error
 from tgbot.handlers.admin import handlers as admin_handlers
-from tgbot.handlers.location import handlers as location_handlers
-from tgbot.handlers.onboarding import handlers as onboarding_handlers
-from tgbot.handlers.onboarding.manage_data import SMA_BUTTON, RSI_BUTTON
+from tgbot.handlers.broadcast_message import handlers as broadcast_handlers
+from tgbot.handlers.broadcast_message.manage_data import CONFIRM_DECLINE_BROADCAST
+from tgbot.handlers.broadcast_message.static_text import broadcast_command
+from tgbot.handlers.choose_strategy import handlers as choose_strategy_handlers
 from tgbot.handlers.feedback import handlers as feedback_handlers
 from tgbot.handlers.feedback.manage_data import (
     ASK_FOR_FEEDBACK_STATE,
@@ -30,9 +30,13 @@ from tgbot.handlers.feedback.manage_data import (
     NEGATIVE_ANSWER_BUTTON,
     ASK_FOR_DETAILED_FEEDBACK_BUTTON
 )
-from tgbot.handlers.broadcast_message import handlers as broadcast_handlers
-from tgbot.handlers.broadcast_message.manage_data import CONFIRM_DECLINE_BROADCAST
-from tgbot.handlers.broadcast_message.static_text import broadcast_command
+from tgbot.handlers.location import handlers as location_handlers
+from tgbot.handlers.onboarding import handlers as onboarding_handlers
+from tgbot.handlers.strategies import handlers as strategies_handlers
+from tgbot.handlers.strategies.manage_data import SMA_BUTTON, RSI_BUTTON
+from tgbot.handlers.strategy_info import handlers as strategy_info_handlers
+from tgbot.handlers.turn_off_signals import handlers as turn_off_signals_handlers
+from tgbot.handlers.utils import files, error
 
 
 def setup_dispatcher(dp):
@@ -41,10 +45,6 @@ def setup_dispatcher(dp):
     """
     # onboarding
     dp.add_handler(CommandHandler("start", onboarding_handlers.command_start))
-    dp.add_handler(CallbackQueryHandler(
-        onboarding_handlers.sma, pattern=f"^{SMA_BUTTON}$"))
-    dp.add_handler(CallbackQueryHandler(
-        onboarding_handlers.rsi, pattern=f"^{RSI_BUTTON}$"))
 
     # admin commands
     dp.add_handler(CommandHandler("admin", admin_handlers.admin))
@@ -67,7 +67,7 @@ def setup_dispatcher(dp):
                              pattern=f"^{CONFIRM_DECLINE_BROADCAST}")
     )
 
-    # feedback
+    # feedback command
     dp.add_handler(
         ConversationHandler(entry_points=[CommandHandler("feedback", feedback_handlers.command_feedback)],
                             states={
@@ -82,6 +82,24 @@ def setup_dispatcher(dp):
                                     MessageHandler(Filters.text & ~Filters.command, feedback_handlers.get_feedback)]},
                             fallbacks=[CommandHandler('cancel', feedback_handlers.cancel_feedback)])
     )
+
+    # strategy command
+    dp.add_handler(CommandHandler(
+        "strategy", choose_strategy_handlers.command_strategy))
+
+    # str_info command
+    dp.add_handler(CommandHandler(
+        "str_info", strategy_info_handlers.command_str_info))
+
+    # handle strategy choice
+    dp.add_handler(CallbackQueryHandler(
+        strategies_handlers.sma, pattern=f"^{SMA_BUTTON}$"))
+    dp.add_handler(CallbackQueryHandler(
+        strategies_handlers.rsi, pattern=f"^{RSI_BUTTON}$"))
+
+    # off command
+    dp.add_handler(CommandHandler(
+        "off", turn_off_signals_handlers.command_off))
 
     # files
     dp.add_handler(MessageHandler(

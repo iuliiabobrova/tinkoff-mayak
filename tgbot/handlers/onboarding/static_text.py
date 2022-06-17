@@ -15,5 +15,3 @@ greetings = (f'{hello}\n'
              f'<a href="{rsi_strategy_link}"><b>Перепроданность по RSI</b></a>\n'
              f'\n'
              f'{hello_2}')
-sma_button_text = "Скользящее среднее (SMA)"
-rsi_button_text = "Перепроданность по RSI"
