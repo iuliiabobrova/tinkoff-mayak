@@ -32,9 +32,11 @@ from tgbot.handlers.feedback.manage_data import (
 )
 from tgbot.handlers.location import handlers as location_handlers
 from tgbot.handlers.onboarding import handlers as onboarding_handlers
+from tgbot.handlers.stock import handlers as stock_handlers
 from tgbot.handlers.strategies import handlers as strategies_handlers
 from tgbot.handlers.strategies.manage_data import SMA_BUTTON, RSI_BUTTON
 from tgbot.handlers.strategy_info import handlers as strategy_info_handlers
+from tgbot.handlers.time import handlers as time_handlers
 from tgbot.handlers.turn_off_signals import handlers as turn_off_signals_handlers
 from tgbot.handlers.utils import files, error
 
@@ -96,6 +98,14 @@ def setup_dispatcher(dp):
         strategies_handlers.sma, pattern=f"^{SMA_BUTTON}$"))
     dp.add_handler(CallbackQueryHandler(
         strategies_handlers.rsi, pattern=f"^{RSI_BUTTON}$"))
+
+    # stock command
+    dp.add_handler(CommandHandler(
+        "stock", stock_handlers.command_stock))
+
+    # time command
+    dp.add_handler(CommandHandler(
+        "time", time_handlers.command_time))
 
     # off command
     dp.add_handler(CommandHandler(

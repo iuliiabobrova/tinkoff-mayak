@@ -13,3 +13,10 @@ def make_keyboard_for_strategies() -> InlineKeyboardMarkup:
     ]
 
     return InlineKeyboardMarkup(buttons)
+
+
+def make_keyboard_for_signal(user_id, signal):
+    action = 'Купить' if signal.buy_flag == 1 else 'Продать'
+    buttons = [[InlineKeyboardButton(action, url=signal.get_url(user_id))]]
+
+    return InlineKeyboardMarkup(buttons)
