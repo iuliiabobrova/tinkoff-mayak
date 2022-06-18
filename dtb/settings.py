@@ -28,7 +28,7 @@ if os.environ.get('DJANGO_DEBUG', default=False) in ['True', 'true', '1', True]:
 else:
     DEBUG = False
 
-ALLOWED_HOSTS = ["*",]  # since Telegram uses a lot of IPs for webhooks
+ALLOWED_HOSTS = ["*", ]  # since Telegram uses a lot of IPs for webhooks
 
 
 INSTALLED_APPS = [
@@ -162,6 +162,16 @@ if TELEGRAM_TOKEN is None:
 
 TELEGRAM_LOGS_CHAT_ID = os.getenv("TELEGRAM_LOGS_CHAT_ID", default=None)
 
+# -----> TINKOFF INVEST API
+INVEST_TOKEN = os.getenv('INVEST_TOKEN')
+if INVEST_TOKEN is None:
+    logging.error(
+        "Please provide INVEST_TOKEN in .env file.\n"
+        "Example of .env file: https://github.com/ohld/django-telegram-bot/blob/main/.env_example"
+    )
+    sys.exit(1)
+
+
 # -----> SENTRY
 # import sentry_sdk
 # from sentry_sdk.integrations.django import DjangoIntegration
@@ -181,4 +191,3 @@ TELEGRAM_LOGS_CHAT_ID = os.getenv("TELEGRAM_LOGS_CHAT_ID", default=None)
 #     # django.contrib.auth) you may enable sending PII data.
 #     send_default_pii=True
 # )
-

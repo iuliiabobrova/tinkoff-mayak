@@ -3,6 +3,7 @@
 """
 import sys
 import logging
+import threading
 from typing import Dict
 
 import telegram.error
@@ -17,6 +18,8 @@ from telegram.ext import (
 from dtb.celery import app  # event processing in async mode
 from dtb.settings import TELEGRAM_TOKEN, DEBUG
 
+# from corestrategy.datadownload import run_download_data
+# from corestrategy.strategycalc import run_sma_strategy
 from tgbot.handlers.admin import handlers as admin_handlers
 from tgbot.handlers.broadcast_message import handlers as broadcast_handlers
 from tgbot.handlers.broadcast_message.manage_data import CONFIRM_DECLINE_BROADCAST
@@ -140,6 +143,7 @@ def run_pooling():
 
     dp = updater.dispatcher
     dp = setup_dispatcher(dp)
+    j = updater.job_queue
 
     bot_info = Bot(TELEGRAM_TOKEN).get_me()
     bot_link = f"https://t.me/" + bot_info["username"]
@@ -197,3 +201,6 @@ set_up_commands(bot)
 n_workers = 0 if DEBUG else 4
 dispatcher = setup_dispatcher(Dispatcher(
     bot, update_queue=None, workers=n_workers, use_context=True))
+
+# thr2 = threading.Thread(target=run_download_data).start()
+# thr3 = threading.Thread(target=run_sma_strategy).start()

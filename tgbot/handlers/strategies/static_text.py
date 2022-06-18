@@ -12,3 +12,4 @@ rsi_low = df_texts.signal[2]
 rsi_high = df_texts.signal[3]
 sma_low = df_texts.signal[4]
 sma_high = df_texts.signal[5]
+already_subscribed = "Вы уже подписаны на данную стратегию"

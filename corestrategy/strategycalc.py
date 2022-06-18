@@ -1,14 +1,17 @@
 import datetime as dt
 import os.path
+import pandas as pd
 import threading
 import time
+
+from corestrategy.datadownload import (
+    df_all_figi, df_all_shares,
+    period_of_short_sma, period_of_long_sma,
+    check_files_existing
+)
 from datetime import datetime
-
-import pandas as pd
+from dtb.settings import INVEST_TOKEN
 from tinkoff.invest import *
-
-from corestrategy.datadownload import df_all_figi, df_all_shares, period_of_short_sma, period_of_long_sma, \
-    check_files_existing, token
 
 
 def get_shares_list_to_csv():
@@ -19,12 +22,14 @@ def get_shares_list_to_csv():
     df_figi, df_shares = 'error', 'error'
 
     try:
-        with Client(token) as client:  # обёртка
-            all_shares = client.instruments.shares()  # запрашивает название всех акций и закладывает их в переменную
+        with Client(INVEST_TOKEN) as client:  # обёртка
+            # запрашивает название всех акций и закладывает их в переменную
+            all_shares = client.instruments.shares()
         df_shares = pd.DataFrame(all_shares.instruments)
         df_shares.set_index(['figi'], inplace=True)
         df_figi = df_shares.index  # для подачи на выход функции массива всех figi
-        df_shares.to_csv('csv/shares.csv', sep=';')  # выгружает dataframe в CSV
+        # выгружает dataframe в CSV
+        df_shares.to_csv('csv/shares.csv', sep=';')
         print('✅Downloaded list of shares')
 
     except Exception as e:
@@ -40,16 +45,19 @@ def get_all_lasts():
     '''получаем самые последние цены всех акций'''
     # TODO исключить уточняющие свечи?
 
-    with Client(token) as client:
+    with Client(INVEST_TOKEN) as client:
         request_lasts = client.market_data.get_last_prices(
             figi=(df_all_figi.tolist())).last_prices  # запрос данных из API. Отвечает массивом?
 
     df = pd.DataFrame(columns=['figi', 'last_price', 'datetime'])
     for n in request_lasts:
-        last_price = f"{n.price.units}.{n.price.nano // 10000000}"  # парсит last из ответа API
-        date_time = dt.datetime(n.time.year, n.time.month, n.time.day, n.time.hour, n.time.minute, n.time.second)
+        # парсит last из ответа API
+        last_price = f"{n.price.units}.{n.price.nano // 10000000}"
+        date_time = dt.datetime(
+            n.time.year, n.time.month, n.time.day, n.time.hour, n.time.minute, n.time.second)
         figi = n.figi  # получает figi из ответа API
-        df.loc[len(df.index)] = [figi, last_price, date_time]  # сохраняет данные в DF
+        df.loc[len(df.index)] = [figi, last_price,
+                                 date_time]  # сохраняет данные в DF
     df.set_index('figi', inplace=True)  # индексирует DF по figi
 
     return df
@@ -71,9 +79,9 @@ def sma_cross(actual_short_sma,
 
     # проверка на совпадение с условиями сигнала
     crossing_buy = ((actual_short_sma > actual_long_sma) & (previous_short_sma_2 < previous_long_sma_2) & (
-            last_price > actual_long_sma))
+        last_price > actual_long_sma))
     crossing_sell = ((actual_short_sma < actual_long_sma) & (previous_short_sma_2 > previous_long_sma_2) & (
-            last_price < actual_long_sma))
+        last_price < actual_long_sma))
 
     # если условие выполняется, то записываем данные в CSV
     if crossing_sell:
@@ -95,14 +103,14 @@ def sma_cross(actual_short_sma,
                                             profit,
                                             currency]
                 df_historic_signals_sma.loc[figi] = [ticker,
-                                            share_name,
-                                            datetime.now(),
-                                            last_price,
-                                            sell_flag,
-                                            buy_flag,
-                                            'sma',
-                                            profit,
-                                            currency]
+                                                     share_name,
+                                                     datetime.now(),
+                                                     last_price,
+                                                     sell_flag,
+                                                     buy_flag,
+                                                     'sma',
+                                                     profit,
+                                                     currency]
         except:
             buy_flag = 0
             sell_flag = 1
@@ -189,9 +197,11 @@ def calc_signals_sma(n):
     Все данные в итоге подаёт на вход def sma_cross'''
 
     # подготовка df
-    df_previous_sma_saving = pd.DataFrame(index=df_all_figi, columns=['previous_short_sma', 'previous_long_sma'])
+    df_previous_sma_saving = pd.DataFrame(index=df_all_figi, columns=[
+                                          'previous_short_sma', 'previous_long_sma'])
     df_all_historic_sma = pd.read_csv('csv/sma.csv', sep=';', index_col=0)
-    df_historic_signals_sma = pd.read_csv('csv/historic_signals_sma.csv', sep=';', index_col=0)
+    df_historic_signals_sma = pd.read_csv(
+        'csv/historic_signals_sma.csv', sep=';', index_col=0)
     df_all_lasts = get_all_lasts()
     if not os.path.exists('csv/actual_signals_sma.csv'):
         df_signals = pd.DataFrame(columns=['ticker',
@@ -204,20 +214,23 @@ def calc_signals_sma(n):
                                            'profit',
                                            'currency'])
     else:
-        df_signals = pd.read_csv('csv/actual_signals_sma.csv', sep=';', index_col=0)
+        df_signals = pd.read_csv(
+            'csv/actual_signals_sma.csv', sep=';', index_col=0)
 
     for figi in df_all_historic_sma.columns[::2]:
         # ниже получаем данные о исторических SMA из CSV
         figi = figi[:12]  # считываем figi без лишних элементов
 
-        df_historic_short_sma = df_all_historic_sma[f'{figi}.short'].dropna()  # подготовка DF с short_SMA по figi
+        # подготовка DF с short_SMA по figi
+        df_historic_short_sma = df_all_historic_sma[f'{figi}.short'].dropna()
         if df_historic_short_sma.size != 0:  # проверка на пустой DF
             historic_short_sma = df_historic_short_sma.loc[
                 df_historic_short_sma.index.max()]  # закладываем в переменную последнюю короткую SMA
         else:
             historic_short_sma = False
 
-        df_historic_long_sma = df_all_historic_sma[f'{figi}.long'].dropna()  # подготовка DF с long_SMA по figi
+        # подготовка DF с long_SMA по figi
+        df_historic_long_sma = df_all_historic_sma[f'{figi}.long'].dropna()
         if df_historic_long_sma.size != 0:  # проверка на пустой DF
             historic_long_sma = df_historic_long_sma.loc[
                 df_historic_long_sma.index.max()]  # закладываем в переменную последнюю длинную SMA
@@ -230,25 +243,28 @@ def calc_signals_sma(n):
         c = datetime.utcnow().day == df_all_lasts.loc[figi].datetime.day
         d = datetime.utcnow().hour == df_all_lasts.loc[figi].datetime.hour
         e = datetime.utcnow().minute == df_all_lasts.loc[figi].datetime.minute
-        f = datetime.utcnow().minute - 1 == df_all_lasts.loc[figi].datetime.minute
-        g = datetime.utcnow().minute - 2 == df_all_lasts.loc[figi].datetime.minute
+        f = datetime.utcnow().minute - \
+            1 == df_all_lasts.loc[figi].datetime.minute
+        g = datetime.utcnow().minute - \
+            2 == df_all_lasts.loc[figi].datetime.minute
         h = e or f or g
         if a and b and c and d and h:
 
             last_price = float(df_all_lasts.loc[figi].last_price)
             if n == 0:
                 previous_short_sma = round((
-                        (historic_short_sma * (period_of_short_sma - 1) + last_price) / period_of_short_sma), 3)
+                    (historic_short_sma * (period_of_short_sma - 1) + last_price) / period_of_short_sma), 3)
                 previous_long_sma = round((
-                        (historic_long_sma * (period_of_long_sma - 1) + last_price) / period_of_long_sma), 3)
-                df_previous_sma_saving.loc[figi] = [previous_short_sma, previous_long_sma]
+                    (historic_long_sma * (period_of_long_sma - 1) + last_price) / period_of_long_sma), 3)
+                df_previous_sma_saving.loc[figi] = [
+                    previous_short_sma, previous_long_sma]
 
             else:
 
                 actual_short_sma = round((
-                        (historic_short_sma * (period_of_short_sma - 1) + last_price) / period_of_short_sma), 3)
+                    (historic_short_sma * (period_of_short_sma - 1) + last_price) / period_of_short_sma), 3)
                 actual_long_sma = round((
-                        (historic_long_sma * (period_of_long_sma - 1) + last_price) / period_of_long_sma), 3)
+                    (historic_long_sma * (period_of_long_sma - 1) + last_price) / period_of_long_sma), 3)
                 df_previous_sma_saving.loc[figi] = [actual_short_sma,
                                                     actual_long_sma]  # актуальные сигналы становятся прошлыми
 

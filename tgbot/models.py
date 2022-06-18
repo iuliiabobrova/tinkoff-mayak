@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from typing import Union, Optional, Tuple
+from xmlrpc.client import Boolean
 
 from django.db import models
 from django.db.models import QuerySet, Manager
@@ -79,6 +80,7 @@ class User(CreateUpdateTracker):
 
 
 class FeedbackMessage(CreateTracker):
+    id = models.BigAutoField(primary_key=True)
     update_id = models.IntegerField(unique=True)
     text = models.CharField(max_length=4096)
     user = models.ForeignKey(User, on_delete=models.CASCADE)
@@ -95,7 +97,43 @@ class FeedbackMessage(CreateTracker):
             user=user, update_id=update.update_id, text=text)
 
 
+class StrategySubscription(CreateTracker):
+    subscription_id = models.BigAutoField(primary_key=True)
+    strategy_id = models.CharField(max_length=32, **nb)
+
+    def __str__(self) -> str:
+        return f'{self.strategy_id}'
+
+    @classmethod
+    def create_subscription(cls, strategy_id: str) -> StrategySubscription:
+        return cls.objects.create(strategy_id=strategy_id)
+
+
+class UserSubscription(CreateTracker):
+    id = models.BigAutoField(primary_key=True)
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    subscription = models.ForeignKey(
+        StrategySubscription, on_delete=models.CASCADE)
+
+    def __str__(self) -> str:
+        return f'{self.user} {self.subscription}'
+
+    @classmethod
+    def subscribe_user_to_strategy(cls, user: User, strategy_id: str) -> Boolean:
+        # TODO: проверка не понадобится, если разрешим несколько подписок
+        user_has_subscription = cls.objects.filter(
+            user_id=user.user_id, subscription__strategy_id=strategy_id).exists()
+
+        if not user_has_subscription:
+            subscription = StrategySubscription.create_subscription(
+                strategy_id=strategy_id)
+            cls.objects.create(user=user, subscription=subscription)
+
+        return not user_has_subscription
+
+
 class Location(CreateTracker):
+    id = models.BigAutoField(primary_key=True)
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     latitude = models.FloatField()
     longitude = models.FloatField()

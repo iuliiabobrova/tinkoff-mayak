@@ -41,3 +41,9 @@ def get_last_signals(df: DataFrame, n=3) -> List[Signal]:
     signals = df.tail(n).to_dict('records')
 
     return list(map(lambda x: Signal(**x), signals))
+
+
+def get_last_signal(df: DataFrame) -> Signal:
+    signals = get_last_signals(df, n=1)
+
+    return signals[0]

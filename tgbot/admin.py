@@ -4,9 +4,13 @@ from django.shortcuts import render
 
 from dtb.settings import DEBUG
 
-from tgbot.models import Location
-from tgbot.models import User
-from tgbot.models import FeedbackMessage
+from tgbot.models import (
+    User,
+    FeedbackMessage,
+    StrategySubscription,
+    UserSubscription,
+    Location
+)
 from tgbot.forms import BroadcastForm
 
 from tgbot.tasks import broadcast_message
@@ -57,7 +61,18 @@ class UserAdmin(admin.ModelAdmin):
 
 @admin.register(FeedbackMessage)
 class FeedbackMessageAdmin(admin.ModelAdmin):
-    list_display = ['update_id', 'text', 'user', 'created_at']
+    list_display = ['id', 'update_id', 'text', 'user_id', 'user', 'created_at']
+
+
+@admin.register(StrategySubscription)
+class StrategySubscriptionAdmin(admin.ModelAdmin):
+    list_display = ['subscription_id', 'strategy_id', 'created_at']
+
+
+@admin.register(UserSubscription)
+class UserSubscriptionsAdmin(admin.ModelAdmin):
+    list_display = ['id', 'user_id', 'user',
+                    'subscription_id', 'subscription', 'created_at']
 
 
 @admin.register(Location)

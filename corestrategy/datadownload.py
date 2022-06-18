@@ -4,14 +4,16 @@
 
 import pandas as pd
 import numpy as np
-from tqdm import tqdm
-from datetime import datetime, timedelta
 import datetime as dt
-from tinkoff.invest import *
 import os.path
 import time
 import logging
 import threading
+
+from datetime import datetime, timedelta
+from dtb.settings import INVEST_TOKEN
+from tqdm import tqdm
+from tinkoff.invest import *
 
 
 def check_files_existing():
@@ -50,12 +52,14 @@ def get_shares_list_to_csv():
     df_figi, df_shares = 'error', 'error'
 
     try:
-        with Client(token) as client:  # обёртка
-            all_shares = client.instruments.shares()  # запрашивает название всех акций и закладывает их в переменную
+        with Client(INVEST_TOKEN) as client:  # обёртка
+            # запрашивает название всех акций и закладывает их в переменную
+            all_shares = client.instruments.shares()
         df_shares = pd.DataFrame(all_shares.instruments)
         df_shares.set_index(['figi'], inplace=True)
         df_figi = df_shares.index  # для подачи на выход функции массива всех figi
-        df_shares.to_csv('csv/shares.csv', sep=';')  # выгружает dataframe в CSV
+        # выгружает dataframe в CSV
+        df_shares.to_csv('csv/shares.csv', sep=';')
         print('✅Downloaded list of shares')
 
     except Exception as e:
@@ -78,7 +82,8 @@ def last_data_parser(figi):
                                          sep=';',
                                          index_col='Unnamed: 0')[figi]  # выделяет DataFrame для поиска в нём даты
             figi_last_date = figi_last_date.dropna().index  # выделяет из DF только массив дат
-            figi_last_date = pd.to_datetime(figi_last_date, infer_datetime_format=True).max()  # выделяет последнюю дату
+            figi_last_date = pd.to_datetime(
+                figi_last_date, infer_datetime_format=True).max()  # выделяет последнюю дату
 
         except Exception as e:
             logging.exception(e)
@@ -96,15 +101,20 @@ def one_figi_all_candles_request(figi, days, df_fin_volumes, df_fin_close_prices
     # и сохраняет их в 2 DataFrame df_fin_close_prices и df_fin_volumes
     # вспомогательная функция для def create_2_csv_with_historic_candles
 
-    with Client(token) as client:
+    with Client(INVEST_TOKEN) as client:
         for candle in client.get_all_candles(
                 figi=figi,  # сюда должен поступать только один figi (id акции)
-                from_=datetime.utcnow() - timedelta(days=days),  # период времени определяется динамически функцией last_data_parser
-                interval=CandleInterval.CANDLE_INTERVAL_DAY,  # запрашиваемая размерность японских свеч (дневная)
+                # период времени определяется динамически функцией last_data_parser
+                from_=datetime.utcnow() - timedelta(days=days),
+                # запрашиваемая размерность японских свеч (дневная)
+                interval=CandleInterval.CANDLE_INTERVAL_DAY,
         ):
             if candle.is_complete:
-                data = dt.datetime(candle.time.year, candle.time.month, candle.time.day)  # из ответа API парсит дату
-                close_price = f'{candle.close.units}.{candle.close.nano // 10000000}'  # из ответа API парс. цену закрытия
+                # из ответа API парсит дату
+                data = dt.datetime(
+                    candle.time.year, candle.time.month, candle.time.day)
+                # из ответа API парс. цену закрытия
+                close_price = f'{candle.close.units}.{candle.close.nano // 10000000}'
                 volume = candle.volume  # из ответа API парсит объём торгов
 
                 # print('Цена открытия:', candle.open.units, '.', candle.open.nano // 10000000, sep='')
@@ -114,8 +124,10 @@ def one_figi_all_candles_request(figi, days, df_fin_volumes, df_fin_close_prices
                 # print('Объём:', candle.volume, 'сделок')
                 # print('')
 
-                df_fin_close_prices.at[data, figi] = close_price  # если данных нет, записывает новые
-                df_fin_volumes.at[data, figi] = volume  # если данных нет, записывает новые
+                # если данных нет, записывает новые
+                df_fin_close_prices.at[data, figi] = close_price
+                # если данных нет, записывает новые
+                df_fin_volumes.at[data, figi] = volume
 
 
 def create_2_csv_with_historic_candles():
@@ -125,8 +137,10 @@ def create_2_csv_with_historic_candles():
 
     # ниже подготовка входных данных для функций
     if os.path.exists('csv/historic_close_prices.csv'):  # проверка существует ли файл
-        df_fin_close_prices = pd.read_csv('csv/historic_close_prices.csv', sep=';', parse_dates=[0], index_col=0)
-        df_fin_volumes = pd.read_csv('csv/historic_volumes.csv', sep=';', parse_dates=[0], index_col=0)
+        df_fin_close_prices = pd.read_csv(
+            'csv/historic_close_prices.csv', sep=';', parse_dates=[0], index_col=0)
+        df_fin_volumes = pd.read_csv(
+            'csv/historic_volumes.csv', sep=';', parse_dates=[0], index_col=0)
     else:
         df_fin_close_prices = pd.DataFrame()  # пустой DF, если файла нет
         df_fin_volumes = pd.DataFrame()  # пустой DF, если файла нет
@@ -139,27 +153,34 @@ def create_2_csv_with_historic_candles():
 
         if days != 0:  # проверка: не запрашиваем ли существующие в CSV данные
             try:
-                one_figi_all_candles_request(figi, days, df_fin_volumes, df_fin_close_prices)
+                one_figi_all_candles_request(
+                    figi, days, df_fin_volumes, df_fin_close_prices)
                 if days > 3:
                     time.sleep(0.601)  # не более 100 запросов API в минуту
                 else:
-                    time.sleep(0.201)  # TODO если запросы мелкие, то не более 300?
+                    # TODO если запросы мелкие, то не более 300?
+                    time.sleep(0.201)
             except Exception as e:
                 print(e)
                 print(f'Wait 60sec to download more candles, resource exhausted:')
                 time.sleep(60)
                 try:
-                    one_figi_all_candles_request(figi, days, df_fin_volumes, df_fin_close_prices)
+                    one_figi_all_candles_request(
+                        figi, days, df_fin_volumes, df_fin_close_prices)
                     if days > dt.timedelta(days=3):
                         time.sleep(0.601)  # не более 100 запросов API в минуту
                     else:
-                        time.sleep(0.201)  # TODO если запросы мелкие, то не более 300?
+                        # TODO если запросы мелкие, то не более 300?
+                        time.sleep(0.201)
                 except Exception as e:
-                    logging.error('Failed downloading candles twice', exc_info=e)
+                    logging.error(
+                        'Failed downloading candles twice', exc_info=e)
 
-    df_fin_close_prices = df_fin_close_prices.sort_index()  # сортируем DF по датам по возрастанию
+    # сортируем DF по датам по возрастанию
+    df_fin_close_prices = df_fin_close_prices.sort_index()
     df_fin_close_prices.to_csv('csv/historic_close_prices.csv', sep=';')
-    df_fin_volumes = df_fin_volumes.sort_index()  # сортируем DF по датам по возрастанию
+    # сортируем DF по датам по возрастанию
+    df_fin_volumes = df_fin_volumes.sort_index()
     df_fin_volumes.to_csv('csv/historic_volumes.csv', sep=';')
     print('✅Successfully downloaded and saved historic candles')
 
@@ -170,12 +191,16 @@ def calc_std():
     # FUNC получает на вход массив figi
     # на выходе DataFrame с подсчётами "стандартного отклонения" для каждого figi
 
-    df_fin_close_prices = pd.read_csv('csv/historic_close_prices.csv', sep=';', index_col=0)
+    df_fin_close_prices = pd.read_csv(
+        'csv/historic_close_prices.csv', sep=';', index_col=0)
     df_price_std = pd.DataFrame()  # пустой DF
     for i in df_all_figi:
-        df = df_fin_close_prices[i].dropna()  # получаем для каждого figi его DF с close_prices без пустых ячеек
-        std = df.tail(std_period).pct_change().std().round(3)  # считаем стандартное отклонение
-        df_price_std.loc[i, "std"] = std  # сохраняем стандартное отклонение в DF
+        # получаем для каждого figi его DF с close_prices без пустых ячеек
+        df = df_fin_close_prices[i].dropna()
+        std = df.tail(std_period).pct_change().std().round(
+            3)  # считаем стандартное отклонение
+        # сохраняем стандартное отклонение в DF
+        df_price_std.loc[i, "std"] = std
     df_price_std.to_csv('csv/std.csv', sep=';')
     print('✅Calc of STD done')
 
@@ -186,26 +211,36 @@ def calc_sma():
     # FUNC получает на вход массив figi
     # на выходе DataFrame с подсчётами "скользящего среднего" для каждого figi
 
-    df_fin_close_prices = pd.read_csv('csv/historic_close_prices.csv', sep=';', index_col=0)
+    df_fin_close_prices = pd.read_csv(
+        'csv/historic_close_prices.csv', sep=';', index_col=0)
     df_sma_final = pd.DataFrame()  # пустой DF
     df_sma2 = pd.DataFrame()  # пустой DF
-    df_amount_of_sma = pd.DataFrame(columns=['amount_of_sma_rows'])  # пустой DF
+    df_amount_of_sma = pd.DataFrame(
+        columns=['amount_of_sma_rows'])  # пустой DF
 
     for x in tqdm(range(len(df_all_figi)), desc='Calculating_historic_SMA'):
         i = df_all_figi[x]
-        df = df_fin_close_prices[i].dropna()  # получаем для каждого figi его DF с close_prices без пустых ячеек
+        # получаем для каждого figi его DF с close_prices без пустых ячеек
+        df = df_fin_close_prices[i].dropna()
 
-        df_sma_short = df.rolling(period_of_short_sma - 1).mean().dropna().round(3)  # скользяшки за коротк. период
-        df_sma_long = df.rolling(period_of_long_sma - 1).mean().dropna().round(3)  # скользяшки за длинный период
+        # скользяшки за коротк. период
+        df_sma_short = df.rolling(
+            period_of_short_sma - 1).mean().dropna().round(3)
+        # скользяшки за длинный период
+        df_sma_long = df.rolling(
+            period_of_long_sma - 1).mean().dropna().round(3)
 
-        df_ma = pd.concat([df_sma_short, df_sma_long], axis=1)  # объединяем короткие и длинные "скользяшки"
-        df_ma.columns = [f'{i}.short', f'{i}.long']  # именуем столбцы корректно
+        # объединяем короткие и длинные "скользяшки"
+        df_ma = pd.concat([df_sma_short, df_sma_long], axis=1)
+        # именуем столбцы корректно
+        df_ma.columns = [f'{i}.short', f'{i}.long']
         df_sma_final = pd.merge(df_sma2,
                                 df_ma,
                                 left_index=True,
                                 right_index=True,
                                 how='outer')  # добавляем данные к итоговому DataFrame df_sma_final
-        df_sma2 = df_sma_final  # сохраняем итоговый DF в переменную, чтобы можно было добавить данные след. циклом
+        # сохраняем итоговый DF в переменную, чтобы можно было добавить данные след. циклом
+        df_sma2 = df_sma_final
 
         df_amount_of_sma.loc[i] = [df_sma_long.size]
 
@@ -230,9 +265,9 @@ def historic_sma_cross(historic_short_sma,
     # функция считает, пересекаются ли скользяшки, а далее формирует сигнал
 
     crossing_buy = ((historic_short_sma > historic_long_sma) & (
-            previous_historic_short_sma < previous_historic_long_sma) & (historic_last_price > historic_long_sma))
+        previous_historic_short_sma < previous_historic_long_sma) & (historic_last_price > historic_long_sma))
     crossing_sell = ((historic_short_sma < historic_long_sma) & (
-            previous_historic_short_sma > previous_historic_long_sma) & (historic_last_price < historic_long_sma))
+        previous_historic_short_sma > previous_historic_long_sma) & (historic_last_price < historic_long_sma))
 
     # формирование сигнала, запись в DF
     if crossing_sell:
@@ -282,21 +317,25 @@ def calc_one_historic_signal_sma(i,
         # ниже получаем данные о исторических SMA из CSV
         figi = i[:12]
 
-        df_historic_short_sma = df_all_historic_sma[f'{figi}.short'].dropna()  # подготовка DF с short_SMA по figi
+        # подготовка DF с short_SMA по figi
+        df_historic_short_sma = df_all_historic_sma[f'{figi}.short'].dropna()
         if df_historic_short_sma.size != 0:  # проверка на пустой DF
             historic_short_sma = df_historic_short_sma.loc[df_historic_short_sma.index[index_of_row]]
             # TODO тест принтом +151 в минус (ошибка?) TEST на тикере ABRD
-            previous_historic_short_sma = df_historic_short_sma.loc[df_historic_short_sma.index[index_of_row - 1]]
+            previous_historic_short_sma = df_historic_short_sma.loc[
+                df_historic_short_sma.index[index_of_row - 1]]
             # TODO тест принтом +150 в минус (ошибка?) TEST на тикере ABRD
         else:
             historic_short_sma = False
             previous_historic_short_sma = False
 
-        df_historic_long_sma = df_all_historic_sma[f'{figi}.long'].dropna()  # подготовка DF с long_SMA по figi
+        # подготовка DF с long_SMA по figi
+        df_historic_long_sma = df_all_historic_sma[f'{figi}.long'].dropna()
         if df_historic_long_sma.size != 0:  # проверка на пустой DF
             historic_long_sma = df_historic_long_sma.loc[df_historic_long_sma.index[index_of_row]]
             # TODO тест принтом на дату (ошибка?) TEST на тикере ABRD
-            previous_historic_long_sma = df_historic_long_sma.loc[df_historic_long_sma.index[index_of_row - 1]]
+            previous_historic_long_sma = df_historic_long_sma.loc[
+                df_historic_long_sma.index[index_of_row - 1]]
             # TODO тест принтом на дату (ошибка?) TEST на тикере ABRD
         else:
             historic_long_sma = False
@@ -319,9 +358,11 @@ def calc_one_historic_signal_sma(i,
 def calc_historic_signals_sma():
     # функция позволяет циклически считать сигналы на основе постоянно обновляющихся last_prices
 
-    df_fin_close_prices = pd.read_csv('csv/historic_close_prices.csv', sep=';', index_col=0, parse_dates=[0])
+    df_fin_close_prices = pd.read_csv(
+        'csv/historic_close_prices.csv', sep=';', index_col=0, parse_dates=[0])
     df_all_historic_sma = pd.read_csv('csv/sma.csv', sep=';', index_col=0)
-    df_amount_of_sma = pd.read_csv('csv/amount_sma.csv', sep=';', index_col=0, parse_dates=[0])
+    df_amount_of_sma = pd.read_csv(
+        'csv/amount_sma.csv', sep=';', index_col=0, parse_dates=[0])
     df_historic_signals_sma = pd.DataFrame(columns=['figi',
                                                     'ticker',
                                                     'share_name',
@@ -354,9 +395,11 @@ def calc_profit():
     # функция считает доходность от использования двух последних сигналов SMA
     # на вход подаются сформированные исторические сигналы по стратегии SMA
 
-    df_sgnls_sma = pd.read_csv('csv/historic_signals_sma.csv', sep=';', index_col=0)
+    df_sgnls_sma = pd.read_csv(
+        'csv/historic_signals_sma.csv', sep=';', index_col=0)
     df_profit_sma = pd.DataFrame(columns=['profit'])
-    df_sgnls_rsi = pd.read_csv('csv/historic_signals_rsi.csv', sep=';', index_col=0)
+    df_sgnls_rsi = pd.read_csv(
+        'csv/historic_signals_rsi.csv', sep=';', index_col=0)
     df_profit_rsi = pd.DataFrame(columns=['profit'])
     profit = 'error'
 
@@ -364,23 +407,31 @@ def calc_profit():
         try:
             figi = df_all_figi[x]
             if (df_sgnls_sma.loc[figi].tail(2).sell_flag[0]) == 0 and (df_sgnls_sma.loc[figi].tail(2).buy_flag[0] == 1):
-                profit = (100 * (df_sgnls_sma.loc[figi[:12]].tail(2).last_price.pct_change()[1])).round(2)
+                profit = (
+                    100 * (df_sgnls_sma.loc[figi[:12]].tail(2).last_price.pct_change()[1])).round(2)
             if (df_sgnls_sma.loc[figi].tail(2).sell_flag[0]) == 1 and (df_sgnls_sma.loc[figi].tail(2).buy_flag[0] == 0):
-                profit = -(100 * (df_sgnls_sma.loc[figi[:12]].tail(2).last_price.pct_change()[1])).round(2)
+                profit = - \
+                    (100 * (df_sgnls_sma.loc[figi[:12]
+                                             ].tail(2).last_price.pct_change()[1])).round(2)
             df_profit_sma.loc[figi] = profit
         except:
-            pass  # TODO заменить try-except на if (когда нет сигналов по бумаге)
+            # TODO заменить try-except на if (когда нет сигналов по бумаге)
+            pass
 
     for x in tqdm(range(len(df_all_figi)), desc='Calc_profit_of_rsi_signals'):
         try:
             figi = df_all_figi[x]
             if (df_sgnls_rsi.loc[figi].tail(2).sell_flag[0]) == 0 and (df_sgnls_rsi.loc[figi].tail(2).buy_flag[0] == 1):
-                profit = (100 * (df_sgnls_rsi.loc[figi[:12]].tail(2).last_price.pct_change()[1])).round(2)
+                profit = (
+                    100 * (df_sgnls_rsi.loc[figi[:12]].tail(2).last_price.pct_change()[1])).round(2)
             if (df_sgnls_rsi.loc[figi].tail(2).sell_flag[0]) == 1 and (df_sgnls_rsi.loc[figi].tail(2).buy_flag[0] == 0):
-                profit = -(100 * (df_sgnls_rsi.loc[figi[:12]].tail(2).last_price.pct_change()[1])).round(2)
+                profit = - \
+                    (100 * (df_sgnls_rsi.loc[figi[:12]
+                                             ].tail(2).last_price.pct_change()[1])).round(2)
             df_profit_rsi.loc[figi] = profit
         except:
-            pass  # TODO заменить try-except на if (когда нет сигналов по бумаге)
+            # TODO заменить try-except на if (когда нет сигналов по бумаге)
+            pass
 
     df_profit_sma.to_csv('csv/historic_profit_sma.csv', sep=';')
     df_profit_rsi.to_csv('csv/historic_profit_rsi.csv', sep=';')
@@ -393,7 +444,8 @@ def calc_historic_rsi_signals():
     '''Функция позволяет рассчитать индикатор RSI и сигналы на основе индикатора.
     Триггером являются показатели RSI ниже 30% и выше 70% (примерно)'''
 
-    df_fin_close_prices = pd.read_csv('csv/historic_close_prices.csv', sep=';', parse_dates=[0], index_col=0)
+    df_fin_close_prices = pd.read_csv(
+        'csv/historic_close_prices.csv', sep=';', parse_dates=[0], index_col=0)
     df_historic_signals_rsi = pd.DataFrame(columns=['figi',
                                                     'ticker',
                                                     'share_name',
@@ -410,17 +462,22 @@ def calc_historic_rsi_signals():
     delta = df_fin_close_prices.diff()
     up = delta.clip(lower=0)
     down = -1 * delta.clip(upper=0)
-    ema_up = up.ewm(com=14, adjust=False).mean()  # 14 - значение для экспоненциальной скользяшки (дней)
-    ema_down = down.ewm(com=14, adjust=False).mean()  # 14 - значение для экспоненциальной скользяшки (дней)
+    # 14 - значение для экспоненциальной скользяшки (дней)
+    ema_up = up.ewm(com=14, adjust=False).mean()
+    # 14 - значение для экспоненциальной скользяшки (дней)
+    ema_down = down.ewm(com=14, adjust=False).mean()
     rs = ema_up / ema_down
     rsi = (100 - (100 / (1 + rs))).round(2)
     rsi.to_csv('csv/historic_rsi_data.csv', sep=';')
 
     for x in tqdm(range(len(df_all_figi)), desc='Calculating_historic_rsi_signals'):
         figi = df_all_figi[x]
-        upper_rsi = np.nanpercentile(rsi[figi], 95)  # верхняя граница RSI, значение 95 отсеивает RSI примерно выше 70
-        lower_rsi = np.nanpercentile(rsi[figi], 2.5)  # нижняя граница RSI, значение 2.5 отсеивает RSI примерно ниже 30
-        for y in range(len(rsi[figi])):  # цикл проверки DF rsi на условие upper_rsi, lower_rsi
+        # верхняя граница RSI, значение 95 отсеивает RSI примерно выше 70
+        upper_rsi = np.nanpercentile(rsi[figi], 95)
+        # нижняя граница RSI, значение 2.5 отсеивает RSI примерно ниже 30
+        lower_rsi = np.nanpercentile(rsi[figi], 2.5)
+        # цикл проверки DF rsi на условие upper_rsi, lower_rsi
+        for y in range(len(rsi[figi])):
             rsi_float = rsi[figi][y]
             date = rsi.index[y]
             last_price = df_fin_close_prices[figi][date]
@@ -463,9 +520,11 @@ def calc_historic_rsi_signals():
                                                               profit,
                                                               currency]
 
-    df_historic_signals_rsi.reset_index(drop=True, inplace=True)  # удаляет уникальный индекс для индексирования по figi
+    # удаляет уникальный индекс для индексирования по figi
+    df_historic_signals_rsi.reset_index(drop=True, inplace=True)
     df_historic_signals_rsi.set_index('figi', inplace=True)
-    df_historic_signals_rsi.sort_values(by='datetime', inplace=True)  # сортировка. В конце самые актуальные сигналы
+    # сортировка. В конце самые актуальные сигналы
+    df_historic_signals_rsi.sort_values(by='datetime', inplace=True)
     df_historic_signals_rsi.to_csv('csv/historic_signals_rsi.csv', sep=';')
 
 
@@ -505,8 +564,6 @@ def run_download_data():
         else:
             threading.Event().wait(3600)
 
-
-token = os.environ['INVEST_TOKEN']
 
 # настройка стратегии (здесь можно ничего не трогать)
 std_period = 20  # дней (обязатльено меньше sma_short_period)
