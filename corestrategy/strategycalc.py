@@ -11,7 +11,7 @@ from corestrategy.datadownload import (
 )
 from datetime import datetime
 from dtb.settings import INVEST_TOKEN
-from tinkoff.invest import *
+from tinkoff.invest import Client
 
 
 def get_shares_list_to_csv():

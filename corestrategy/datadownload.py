@@ -13,11 +13,18 @@ import threading
 from datetime import datetime, timedelta
 from dtb.settings import INVEST_TOKEN
 from tqdm import tqdm
-from tinkoff.invest import *
+from tinkoff.invest import Client, CandleInterval
+
+# Вопрос на подумать, действительно ли нужно все данные записывать в файлы?
+# Нельзя ли высчитывать налету во время работы бота?
+
+# также намешано все между двумя файлами datadownload.py и strategycalc.py
+# кажется, что функции расчета стратегии и переменные связанные с этим должны быть в другом месте
 
 
+# можно проще (гугли map и lambda функции, с ними 42-51 можно в одну строчку сделать)
+# также стоит вынести в утилиты так как функция не относится напрямую к загрузке файлов
 def check_files_existing():
-
     files = ['csv/actual_signals_sma.csv',
              'csv/amount_sma.csv',
              'csv/historic_close_prices.csv',
@@ -44,6 +51,7 @@ def check_files_existing():
     return answer
 
 
+# функция дублируется также в strategycalc.py
 def get_shares_list_to_csv():
     # FUNC позволяет получить из API список всех акций
     # FUNC создаёт CSV-файл c более подробными данными, чем на выходе функции

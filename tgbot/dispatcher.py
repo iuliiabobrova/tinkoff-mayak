@@ -21,6 +21,8 @@ from dtb.settings import TELEGRAM_TOKEN, DEBUG
 # код исполняется при импорте (нужно поправить, чтобы загрузка делалалась при вызове функции)
 # from corestrategy.datadownload import run_download_data
 # from corestrategy.strategycalc import run_sma_strategy
+
+
 from tgbot.handlers.admin import handlers as admin_handlers
 from tgbot.handlers.broadcast_message import handlers as broadcast_handlers
 from tgbot.handlers.broadcast_message.manage_data import CONFIRM_DECLINE_BROADCAST

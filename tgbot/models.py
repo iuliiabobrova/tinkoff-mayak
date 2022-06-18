@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from typing import Union, Optional, Tuple
-from xmlrpc.client import Boolean
 
 from django.db import models
 from django.db.models import QuerySet, Manager
@@ -84,7 +83,7 @@ class User(CreateUpdateTracker):
             return cls.objects.filter(user_id=int(username)).first()
         return cls.objects.filter(username__iexact=username).first()
 
-    def subscribe_user_to_strategy(self, strategy_id: str) -> Boolean:
+    def subscribe_user_to_strategy(self, strategy_id: str) -> bool:
         # TODO: проверка не понадобится, если разрешим несколько подписок
         has_subscription = self.subscriptions.filter(
             strategy_id=strategy_id).exists()
@@ -96,7 +95,7 @@ class User(CreateUpdateTracker):
 
         return not has_subscription
 
-    def unsubscribe_user_from_strategies(self) -> Boolean:
+    def unsubscribe_user_from_strategies(self) -> bool:
         query = self.subscriptions.all()
         unsubscribed = query.exists()
 
