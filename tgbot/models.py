@@ -18,6 +18,18 @@ class AdminUserManager(Manager):
         return super().get_queryset().filter(is_admin=True)
 
 
+class Subscription(CreateTracker):
+    id = models.BigAutoField(primary_key=True)
+    strategy_id = models.CharField(max_length=32, **nb)
+
+    def __str__(self) -> str:
+        return self.strategy_id
+
+    @classmethod
+    def create_subscription(cls, strategy_id: str) -> Subscription:
+        return cls.objects.create(strategy_id=strategy_id)
+
+
 class User(CreateUpdateTracker):
     user_id = models.PositiveBigIntegerField(primary_key=True)  # telegram_id
     username = models.CharField(max_length=32, **nb)
@@ -30,6 +42,10 @@ class User(CreateUpdateTracker):
     is_blocked_bot = models.BooleanField(default=False)
 
     is_admin = models.BooleanField(default=False)
+
+    # Под капотом создается таблица связей user_id - id подписки на стретегию
+    # В будущем поможет указывать юзеру несколько стратегий
+    subscriptions = models.ManyToManyField(Subscription)
 
     objects = GetOrNoneManager()  # user = User.objects.get_or_none(user_id=<some_id>)
     admins = AdminUserManager()  # User.admins.all()
@@ -68,6 +84,27 @@ class User(CreateUpdateTracker):
             return cls.objects.filter(user_id=int(username)).first()
         return cls.objects.filter(username__iexact=username).first()
 
+    def subscribe_user_to_strategy(self, strategy_id: str) -> Boolean:
+        # TODO: проверка не понадобится, если разрешим несколько подписок
+        has_subscription = self.subscriptions.filter(
+            strategy_id=strategy_id).exists()
+
+        if not has_subscription:
+            subscription = Subscription.create_subscription(
+                strategy_id=strategy_id)
+            self.subscriptions.add(subscription)
+
+        return not has_subscription
+
+    def unsubscribe_user_from_strategies(self) -> Boolean:
+        query = self.subscriptions.all()
+        unsubscribed = query.exists()
+
+        if unsubscribed:
+            query.delete()
+
+        return unsubscribed
+
     @property
     def invited_users(self) -> QuerySet[User]:
         return User.objects.filter(deep_link=str(self.user_id), created_at__gt=self.created_at)
@@ -95,41 +132,6 @@ class FeedbackMessage(CreateTracker):
 
         cls.objects.create(
             user=user, update_id=update.update_id, text=text)
-
-
-class StrategySubscription(CreateTracker):
-    subscription_id = models.BigAutoField(primary_key=True)
-    strategy_id = models.CharField(max_length=32, **nb)
-
-    def __str__(self) -> str:
-        return f'{self.strategy_id}'
-
-    @classmethod
-    def create_subscription(cls, strategy_id: str) -> StrategySubscription:
-        return cls.objects.create(strategy_id=strategy_id)
-
-
-class UserSubscription(CreateTracker):
-    id = models.BigAutoField(primary_key=True)
-    user = models.ForeignKey(User, on_delete=models.CASCADE)
-    subscription = models.ForeignKey(
-        StrategySubscription, on_delete=models.CASCADE)
-
-    def __str__(self) -> str:
-        return f'{self.user} {self.subscription}'
-
-    @classmethod
-    def subscribe_user_to_strategy(cls, user: User, strategy_id: str) -> Boolean:
-        # TODO: проверка не понадобится, если разрешим несколько подписок
-        user_has_subscription = cls.objects.filter(
-            user_id=user.user_id, subscription__strategy_id=strategy_id).exists()
-
-        if not user_has_subscription:
-            subscription = StrategySubscription.create_subscription(
-                strategy_id=strategy_id)
-            cls.objects.create(user=user, subscription=subscription)
-
-        return not user_has_subscription
 
 
 class Location(CreateTracker):

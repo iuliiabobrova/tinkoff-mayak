@@ -18,6 +18,7 @@ from telegram.ext import (
 from dtb.celery import app  # event processing in async mode
 from dtb.settings import TELEGRAM_TOKEN, DEBUG
 
+# код исполняется при импорте (нужно поправить, чтобы загрузка делалалась при вызове функции)
 # from corestrategy.datadownload import run_download_data
 # from corestrategy.strategycalc import run_sma_strategy
 from tgbot.handlers.admin import handlers as admin_handlers
@@ -202,5 +203,7 @@ n_workers = 0 if DEBUG else 4
 dispatcher = setup_dispatcher(Dispatcher(
     bot, update_queue=None, workers=n_workers, use_context=True))
 
+# интуиция подсказывает, что может будет криво работать на большом кол-ве пользователей
+# погугли celery через него можно задавать периодические таски
 # thr2 = threading.Thread(target=run_download_data).start()
 # thr3 = threading.Thread(target=run_sma_strategy).start()

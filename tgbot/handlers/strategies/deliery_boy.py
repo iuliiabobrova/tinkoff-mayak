@@ -30,6 +30,8 @@ def send_signal_to_strategy_subscribers(df: DataFrame) -> None:
     print("Signal sent!")
 
 
+# можно рассылать сообщение через эту штуку через telegram api https://github.com/python-telegram-bot/python-telegram-bot/wiki/Extensions-–-JobQueue
+# чтобы не делать бесконечный цикл и sleep
 def run_delivery_boy():
     previous_size_df_sma = 9999999
     previous_size_df_rsi = 9999999
