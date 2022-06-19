@@ -13,20 +13,53 @@ class Migration(migrations.Migration):
 
     operations = [
         migrations.CreateModel(
+            name='Subscription',
+            fields=[
+                ('created_at', models.DateTimeField(
+                    auto_now_add=True, db_index=True)),
+                ('id', models.BigAutoField(primary_key=True, serialize=False)),
+                ('strategy_id', models.CharField(
+                    blank=True, max_length=32, null=True)),
+            ],
+            options={
+                'ordering': ('-created_at',),
+                'abstract': False,
+            },
+        ),
+        migrations.CreateModel(
             name='User',
             fields=[
-                ('created_at', models.DateTimeField(auto_now_add=True, db_index=True)),
+                ('created_at', models.DateTimeField(
+                    auto_now_add=True, db_index=True)),
                 ('updated_at', models.DateTimeField(auto_now=True)),
-                ('user_id', models.IntegerField(primary_key=True, serialize=False)),
+                ('user_id', models.PositiveBigIntegerField(
+                    primary_key=True, serialize=False)),
                 ('username', models.CharField(blank=True, max_length=32, null=True)),
                 ('first_name', models.CharField(max_length=256)),
-                ('last_name', models.CharField(blank=True, max_length=256, null=True)),
-                ('language_code', models.CharField(blank=True, help_text="Telegram client's lang", max_length=8, null=True)),
+                ('last_name', models.CharField(
+                    blank=True, max_length=256, null=True)),
+                ('language_code', models.CharField(blank=True,
+                 help_text="Telegram client's lang", max_length=8, null=True)),
                 ('deep_link', models.CharField(blank=True, max_length=64, null=True)),
                 ('is_blocked_bot', models.BooleanField(default=False)),
-                ('is_banned', models.BooleanField(default=False)),
                 ('is_admin', models.BooleanField(default=False)),
-                ('is_moderator', models.BooleanField(default=False)),
+                ('subscriptions', models.ManyToManyField(to='tgbot.Subscription'))
+            ],
+            options={
+                'ordering': ('-created_at',),
+                'abstract': False,
+            },
+        ),
+        migrations.CreateModel(
+            name='FeedbackMessage',
+            fields=[
+                ('created_at', models.DateTimeField(
+                    auto_now_add=True, db_index=True)),
+                ('id', models.BigAutoField(primary_key=True, serialize=False)),
+                ('update_id', models.IntegerField(unique=True)),
+                ('text', models.CharField(max_length=4096)),
+                ('user', models.ForeignKey(
+                    on_delete=django.db.models.deletion.CASCADE, to='tgbot.user')),
             ],
             options={
                 'ordering': ('-created_at',),
@@ -36,11 +69,13 @@ class Migration(migrations.Migration):
         migrations.CreateModel(
             name='Location',
             fields=[
-                ('id', models.AutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('created_at', models.DateTimeField(auto_now_add=True, db_index=True)),
+                ('id', models.BigAutoField(primary_key=True, serialize=False)),
+                ('created_at', models.DateTimeField(
+                    auto_now_add=True, db_index=True)),
                 ('latitude', models.FloatField()),
                 ('longitude', models.FloatField()),
-                ('user', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='tgbot.user')),
+                ('user', models.ForeignKey(
+                    on_delete=django.db.models.deletion.CASCADE, to='tgbot.user')),
             ],
             options={
                 'ordering': ('-created_at',),
