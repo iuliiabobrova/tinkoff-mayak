@@ -83,6 +83,10 @@ class User(CreateUpdateTracker):
             return cls.objects.filter(user_id=int(username)).first()
         return cls.objects.filter(username__iexact=username).first()
 
+    @classmethod
+    def get_users_with_strategy_subscription(cls, strategy_id: str) -> QuerySet[User]:
+        return cls.objects.filter(subscriptions__strategy_id=strategy_id)
+
     def subscribe_user_to_strategy(self, strategy_id: str) -> bool:
         # TODO: проверка не понадобится, если разрешим несколько подписок
         has_subscription = self.subscriptions.filter(

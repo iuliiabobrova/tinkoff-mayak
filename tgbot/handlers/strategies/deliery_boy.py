@@ -13,18 +13,19 @@ from tgbot.handlers.broadcast_message.utils import _send_message
 def send_signal_to_strategy_subscribers(df: DataFrame) -> None:
     signal = get_last_signal(df=df)
     strategy_id = signal['strategy_id']
-    user_ids = []
+    users_with_strategy = User.get_users_with_strategy_subscription(
+        strategy_id=strategy_id)
 
-    for user_id in user_ids:
+    for user in users_with_strategy:
         try:
             _send_message(text=f"{signal}",
-                          user_id=user_id,
+                          user_id=user.user_id,
                           tg_token=tg_token,
                           disable_web_page_preview=True,
-                          reply_markup=make_keyboard_for_signal(user_id, signal))
+                          reply_markup=make_keyboard_for_signal(user.user_id, signal))
 
         except Exception as e:
-            print(f"Failed to send message to {user_id}, reason: {e}")
+            print(f"Failed to send message to {user.user_id}, reason: {e}")
         sleep(0.4)
 
     print("Signal sent!")
