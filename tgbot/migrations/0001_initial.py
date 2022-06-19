@@ -43,7 +43,8 @@ class Migration(migrations.Migration):
                 ('deep_link', models.CharField(blank=True, max_length=64, null=True)),
                 ('is_blocked_bot', models.BooleanField(default=False)),
                 ('is_admin', models.BooleanField(default=False)),
-                ('subscriptions', models.ManyToManyField(to='tgbot.Subscription'))
+                ('subscriptions', models.ManyToManyField(
+                    to='tgbot.Subscription', blank=True))
             ],
             options={
                 'ordering': ('-created_at',),

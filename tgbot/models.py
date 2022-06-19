@@ -44,7 +44,7 @@ class User(CreateUpdateTracker):
 
     # Под капотом создается таблица связей user_id - id подписки на стретегию
     # В будущем поможет указывать юзеру несколько стратегий
-    subscriptions = models.ManyToManyField(Subscription)
+    subscriptions = models.ManyToManyField(Subscription, blank=True)
 
     objects = GetOrNoneManager()  # user = User.objects.get_or_none(user_id=<some_id>)
     admins = AdminUserManager()  # User.admins.all()
