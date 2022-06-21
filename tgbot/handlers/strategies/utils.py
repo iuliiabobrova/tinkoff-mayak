@@ -26,7 +26,7 @@ class Signal:
         if self.strategy_id == 'sma':
             description = sma_high if self.buy_flag == 1 else sma_low
         elif self.strategy_id == 'rsi':
-            description = rsi_high if self.buy_flag == 1 else rsi_low
+            description = rsi_low if self.buy_flag == 1 else rsi_high
 
         return f"{signal}\n" \
             f"{self.share_name} (${self.ticker}) {self.last_price} {self.currency}\n" \
