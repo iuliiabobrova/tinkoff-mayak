@@ -53,6 +53,7 @@ Create `.env` file in root directory and copy-paste this:
 DJANGO_DEBUG=True
 DATABASE_URL=sqlite:///db.sqlite3
 TELEGRAM_TOKEN=<ENTER YOUR TELEGRAM TOKEN HERE>
+INVEST_TOKEN=<ENTER YOUR TELEGRAM TOKEN HERE>
 ```
 
 Run migrations to setup SQLite database:
