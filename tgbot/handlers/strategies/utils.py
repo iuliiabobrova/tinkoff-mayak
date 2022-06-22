@@ -1,6 +1,6 @@
 from typing import List
-from pandas import DataFrame
-from datetime import datetime
+from pandas import DataFrame, to_datetime
+from datetime import time, datetime, timedelta
 
 from tgbot.handlers.strategies.static_text import buy_signal, sell_signal, rsi_high, rsi_low, sma_high, sma_low
 
@@ -20,13 +20,18 @@ class Signal:
 
     def __str__(self) -> str:
         signal = buy_signal if self.buy_flag == 1 else sell_signal
-        date = datetime.strftime(datetime.strptime(
-            self.datetime, "%Y-%m-%d"), "%d-%m-%Y")
+        date = to_datetime(self.datetime, dayfirst=True)
+        print(date.time())
+        print(type(date.time()))
+        if date.time() == time(hour=0, minute=0, second=0):
+            date = date.date()
+        else:
+            date = datetime.strftime(date + timedelta(hours=3), format='%d-%m-%Y %Hч:%Mм')
 
         if self.strategy_id == 'sma':
             description = sma_high if self.buy_flag == 1 else sma_low
         elif self.strategy_id == 'rsi':
-            description = rsi_high if self.buy_flag == 1 else rsi_low
+            description = rsi_low if self.buy_flag == 1 else rsi_high
 
         return f"{signal}\n" \
             f"{self.share_name} (${self.ticker}) {self.last_price} {self.currency}\n" \

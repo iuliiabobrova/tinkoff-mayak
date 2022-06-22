@@ -2,6 +2,7 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
 from tgbot.handlers.strategies.manage_data import SMA_BUTTON, RSI_BUTTON
 from tgbot.handlers.strategies.static_text import sma_button_text, rsi_button_text
+from tgbot.handlers.strategies.utils import Signal
 
 
 def make_keyboard_for_strategies() -> InlineKeyboardMarkup:

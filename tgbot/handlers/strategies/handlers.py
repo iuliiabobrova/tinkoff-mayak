@@ -18,11 +18,11 @@ def sma(update: Update, context: CallbackContext) -> None:
 
     if subscribed:
         query.edit_message_text(
-            text=static_text.sma_is_chosen, parse_mode=ParseMode.HTML)
+            text=static_text.sma_is_chosen, parse_mode=ParseMode.HTML, disable_web_page_preview=True)
 
-        sleep(5)
+        sleep(7)
 
-        signals_df = read_csv('csv/historic_signals_sma.csv', sep=';')
+        signals_df = read_csv('csv/historic_signals_sma.csv', sep=';', index_col=0, parse_dates=['datetime'])
         signals = get_last_signals(df=signals_df, n=3)
 
         for signal in signals:
@@ -42,11 +42,11 @@ def rsi(update: Update, context: CallbackContext) -> None:
 
     if subscribed:
         query.edit_message_text(
-            text=static_text.rsi_is_chosen, parse_mode=ParseMode.HTML)
+            text=static_text.rsi_is_chosen, parse_mode=ParseMode.HTML, disable_web_page_preview=True)
 
-        sleep(5)
+        sleep(7)
 
-        signals_df = read_csv('csv/historic_signals_rsi.csv', sep=';')
+        signals_df = read_csv('csv/historic_signals_rsi.csv', sep=';', index_col=0, parse_dates=['datetime'])
         signals = get_last_signals(df=signals_df, n=3)
 
         for signal in signals:

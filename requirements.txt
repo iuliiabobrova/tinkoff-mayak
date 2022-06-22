@@ -18,7 +18,6 @@ whitenoise
 # Django 3.0 async requirements
 gunicorn
 uvicorn
-uvloop
 httptools
 
 # Databases
@@ -35,3 +34,6 @@ python-telegram-bot
 
 # monitoring
 # sentry-sdk
+
+# Django 3.0 async requirements
+uvloop

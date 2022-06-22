@@ -42,7 +42,7 @@ class User(CreateUpdateTracker):
 
     is_admin = models.BooleanField(default=False)
 
-    # Под капотом создается таблица связей user_id - id подписки на стретегию
+    # Под капотом создается таблица связей user_id - id подписки на стратегию
     # В будущем поможет указывать юзеру несколько стратегий
     subscriptions = models.ManyToManyField(Subscription, blank=True)
 
