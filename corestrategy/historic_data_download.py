@@ -599,21 +599,21 @@ def run_download_data() -> None:
         else:
             df_amount_of_sma, df_sma = calc_sma(df_close_prices=df_close_prices)
 
-        # if exists(path='csv/historic_signals_sma.csv'):
-        #     df = read_csv(filepath_or_buffer='csv/historic_signals_sma.csv',
-        #                   sep=';',
-        #                   index_col=0,
-        #                   parse_dates=['datetime'])
-        #     if df.datetime.max().date() + timedelta(days=1) == datetime.now().date():
-        #         df_historic_signals_sma = df
-        #     else:
-        #         df_historic_signals_sma = calc_historic_signals_sma(df_close_prices=df_close_prices,
-        #                                                             df_historic_sma=df_sma,
-        #                                                             df_amount_of_sma=df_amount_of_sma)
-        # else:
-        #     df_historic_signals_sma = calc_historic_signals_sma(df_close_prices=df_close_prices,
-        #                                                         df_historic_sma=df_sma,
-        #                                                         df_amount_of_sma=df_amount_of_sma)
+        if exists(path='csv/historic_signals_sma.csv'):
+            df = read_csv(filepath_or_buffer='csv/historic_signals_sma.csv',
+                          sep=';',
+                          index_col=0,
+                          parse_dates=['datetime'])
+            if df.datetime.max().date() + timedelta(days=1) == datetime.now().date():
+                df_historic_signals_sma = df
+            else:
+                df_historic_signals_sma = calc_historic_signals_sma(df_close_prices=df_close_prices,
+                                                                    df_historic_sma=df_sma,
+                                                                    df_amount_of_sma=df_amount_of_sma)
+        else:
+            df_historic_signals_sma = calc_historic_signals_sma(df_close_prices=df_close_prices,
+                                                                df_historic_sma=df_sma,
+                                                                df_amount_of_sma=df_amount_of_sma)
 
         if exists(path='csv/historic_signals_rsi.csv'):
             df = read_csv(filepath_or_buffer='csv/historic_signals_rsi.csv',
@@ -627,7 +627,7 @@ def run_download_data() -> None:
         else:
             df_historic_signals_rsi = save_historic_signals_rsi(df_close_prices=df_close_prices)
 
-        # calc_std(df_close_prices=df_close_prices) TODO
+        # calc_std(df_close_prices=df_close_prices) TODO (пока не используется)
         # calc_profit(df_historic_signals_rsi=df_historic_signals_rsi)  TODO RSI-profit
         print('✅All data saving complete')
         data_downloading_flag = False
@@ -658,7 +658,7 @@ def run_download_data() -> None:
             calc_sma(df_close_prices=df_close_prices)
 
             # подсчет исторических доходностей на основе сигналов
-            # calc_profit(df_historic_signals_rsi=df_historic_signals_rsi) TODO
+            # calc_profit(df_historic_signals_rsi=df_historic_signals_rsi) (TODO пока не используется)
             print('✅All data saving complete')
             data_downloading_flag = False
 
