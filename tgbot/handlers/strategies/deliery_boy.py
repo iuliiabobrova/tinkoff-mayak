@@ -17,16 +17,11 @@ def send_signal_to_strategy_subscribers(df: DataFrame) -> None:
     strategy_id = signal.strategy_id
     users_with_strategy = User.get_users_with_strategy_subscription(strategy_id=strategy_id)
     for user in users_with_strategy:
-        try:
-            _send_message(text=f"{signal}",
-                          user_id=user.user_id,
-                          tg_token=tg_token,
-                          disable_web_page_preview=True,
-                          reply_markup=make_keyboard_for_signal(user.user_id, signal))
-
-        except Exception as e:
-            print(f"Failed to send message to {user.user_id}, reason: {e}")
-            # TODO записать в DB ID-пользователя, которому нужна повторная попытка отправки сообщения
+        _send_message(text=f"{signal}",
+                      user_id=user.user_id,
+                      tg_token=tg_token,
+                      disable_web_page_preview=True,
+                      reply_markup=make_keyboard_for_signal(user.user_id, signal))
         sleep(0.4)
 
     print("Signal sent!")

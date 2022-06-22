@@ -49,13 +49,12 @@ def setup_dispatcher(dp):
     # onboarding
     dp.add_handler(CommandHandler("start", onboarding_handlers.command_start))
 
-    # TODO удалим? + удалим tgbot/handlers/location, tgbot/handlers/admin
-    # # admin commands
-    # dp.add_handler(CommandHandler("admin", admin_handlers.admin))
-    # dp.add_handler(CommandHandler("stats", admin_handlers.stats))
-    # dp.add_handler(CommandHandler('export_users', admin_handlers.export_users))
-    #
-    # # location
+    # admin commands
+    dp.add_handler(CommandHandler("admin", admin_handlers.admin))
+    dp.add_handler(CommandHandler("stats", admin_handlers.stats))
+    dp.add_handler(CommandHandler('export_users', admin_handlers.export_users))
+
+    # # location TODO после удаления связей в БД удалить закомментированный код (4 строки ниже)
     # dp.add_handler(CommandHandler(
     #     "ask_location", location_handlers.ask_for_location))
     # dp.add_handler(MessageHandler(Filters.location,
