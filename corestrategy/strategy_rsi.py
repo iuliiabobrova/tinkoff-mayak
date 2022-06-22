@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime as dt
 
 from pandas import DataFrame, read_csv, concat
 from numpy import nanpercentile
@@ -10,12 +10,11 @@ def calc_actual_signals_rsi(df_shares: DataFrame,
                             figi_list: list,
                             df_historic_signals_rsi: DataFrame,
                             df_actual_signals_rsi: DataFrame,
-                            df_all_lasts: DataFrame) -> tuple[DataFrame, DataFrame]:
+                            df_all_lasts: DataFrame) -> tuple:
     """Функция позволяет рассчитать индикатор RSI и актуальные сигналы на основе индикатора.
     Триггером являются самые низкие и самые высокие значения RSI, области которых обозначены в
     переменных upper_rsi_percentile, lower_rsi_percentile"""
 
-    print("На входе в функцию:", df_actual_signals_rsi)
     df_close_prices = read_csv(filepath_or_buffer='csv/historic_close_prices.csv',
                                sep=';',
                                parse_dates=[0],
@@ -24,7 +23,7 @@ def calc_actual_signals_rsi(df_shares: DataFrame,
     for figi in figi_list:
         df_figi_close_prices = df_close_prices[f'{figi}'].dropna()[-1:-365:-1][::-1]
         last_price = float(df_all_lasts.loc[figi].last_price)
-        df_figi_close_prices.loc[datetime.now()] = last_price
+        df_figi_close_prices.loc[dt.now()] = last_price
 
         # расчет по формуле RSI
         delta = df_figi_close_prices.diff()
@@ -43,7 +42,7 @@ def calc_actual_signals_rsi(df_shares: DataFrame,
         rsi_float = rsi[-1]
 
         if rsi_float > upper_rsi:  # если истина, записываем в DF сигнал на продажу
-            if (df_actual_signals_rsi.figi == figi).any(): # TODO проверить возможность удаления условия
+            if (df_actual_signals_rsi.figi == figi).any():  # TODO проверить возможность удаления условия
                 if df_actual_signals_rsi[df_actual_signals_rsi.figi == figi].tail(1).sell_flag.all() != 1:
                     ticker = df_shares.ticker[figi]
                     share_name = df_shares.name[figi]
@@ -51,12 +50,12 @@ def calc_actual_signals_rsi(df_shares: DataFrame,
                     sell_flag = 1
                     buy_flag = 0
                     profit = 0  # TODO profit
-                    date = rsi.index[-1]
                     df_actual_signals_rsi = concat(objs=[df_actual_signals_rsi,
                                                          (DataFrame(data=[[figi,
                                                                            ticker,
                                                                            share_name,
-                                                                           date,
+                                                                           dt.strftime(dt.now(),
+                                                                                       fmt='%d-%m-%Y %H-%M-%S'),
                                                                            last_price,
                                                                            rsi_float,
                                                                            sell_flag,
@@ -69,7 +68,8 @@ def calc_actual_signals_rsi(df_shares: DataFrame,
                                                            (DataFrame(data=[[figi,
                                                                              ticker,
                                                                              share_name,
-                                                                             date,
+                                                                             dt.strftime(dt.now(),
+                                                                                         fmt='%d-%m-%Y %H-%M-%S'),
                                                                              last_price,
                                                                              rsi_float,
                                                                              sell_flag,
@@ -189,8 +189,6 @@ def calc_actual_signals_rsi(df_shares: DataFrame,
 
     df_actual_signals_rsi.to_csv(path_or_buf='csv/actual_signals_rsi.csv', sep=';')
     df_historic_signals_rsi.to_csv(path_or_buf='csv/historic_signals_rsi.csv', sep=';')
-    print(df_actual_signals_rsi)
-    print('RSI Data saved')
 
     return df_actual_signals_rsi, df_historic_signals_rsi
 

@@ -163,7 +163,7 @@ def calc_actual_signals_sma(n: int,
                             df_shares: DataFrame,
                             df_historic_signals_sma: DataFrame,
                             df_actual_signals_sma: DataFrame,
-                            df_all_lasts: DataFrame) -> tuple[DataFrame, DataFrame]:
+                            df_all_lasts: DataFrame) -> tuple:
     """Функция получает из SMA.csv исторические скользящие средние. Далее по ластам считает актуальные скользящие.
     Все данные в итоге подаёт на вход def sma_cross"""
 

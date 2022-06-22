@@ -2,6 +2,7 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
 from tgbot.handlers.strategies.manage_data import SMA_BUTTON, RSI_BUTTON
 from tgbot.handlers.strategies.static_text import sma_button_text, rsi_button_text
+from tgbot.handlers.strategies.utils import Signal
 
 
 def make_keyboard_for_strategies() -> InlineKeyboardMarkup:
@@ -17,6 +18,6 @@ def make_keyboard_for_strategies() -> InlineKeyboardMarkup:
 
 def make_keyboard_for_signal(user_id, signal):
     action = 'Купить' if signal.buy_flag == 1 else 'Продать'
-    buttons = [[InlineKeyboardButton(action, url=signal.get_url(user_id))]]
+    buttons = [[InlineKeyboardButton(action, url=Signal.get_url(signal, user_id))]]
 
     return InlineKeyboardMarkup(buttons)

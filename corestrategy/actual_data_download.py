@@ -15,8 +15,7 @@ def get_all_lasts(figi_list: list) -> DataFrame:
 
     df = DataFrame(columns=['figi', 'last_price', 'datetime'])
     for n in request_lasts:
-        # парсит last из ответа API
-        last_price = f"{n.price.units}.{n.price.nano // 10000000}"
+        last_price = f"{n.price.units}.{n.price.nano // 10000000}"  # парсим last из ответа API
         date_time = datetime(n.time.year, n.time.month, n.time.day, n.time.hour, n.time.minute, n.time.second)
         figi = n.figi  # получает figi из ответа API
         df.loc[len(df.index)] = [figi, last_price, date_time]  # сохраняем данные в DF
