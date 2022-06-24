@@ -20,13 +20,11 @@ class Signal:
 
     def __str__(self) -> str:
         signal = buy_signal if self.buy_flag == 1 else sell_signal
-        date = to_datetime(self.datetime, dayfirst=True)
-        print(date.time())
-        print(type(date.time()))
+        date = to_datetime(self.datetime, dayfirst=True) + timedelta(hours=3)
         if date.time() == time(hour=0, minute=0, second=0):
             date = date.date()
         else:
-            date = datetime.strftime(date + timedelta(hours=3), format='%d-%m-%Y %Hч:%Mм')
+            date = datetime.strftime(date, format='%d-%m-%Y %Hч:%Mм')
 
         if self.strategy_id == 'sma':
             description = sma_high if self.buy_flag == 1 else sma_low
@@ -42,8 +40,8 @@ class Signal:
         return f"http://www.tinkoff.ru/invest/stocks/{self.ticker}?utm_source=mayak_bot&utm_content={user_id}"
 
 
-def get_last_signals(df: DataFrame, n=3) -> List[Signal]:
-    signals = df.tail(n).to_dict('records')
+def get_last_signals(df: DataFrame, amount: int) -> List[Signal]:
+    signals = df.tail(amount).to_dict('records')
 
     return list(map(lambda x: Signal(**x), signals))
 

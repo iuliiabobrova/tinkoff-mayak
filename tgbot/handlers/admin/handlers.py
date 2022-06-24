@@ -39,6 +39,7 @@ def stats(update: Update, context: CallbackContext) -> None:
 
 def export_users(update: Update, context: CallbackContext) -> None:
     u = User.get_user(update, context)
+    print(now())  # TODO delete row
     if not u.is_admin:
         update.message.reply_text(static_text.only_for_admins)
         return
