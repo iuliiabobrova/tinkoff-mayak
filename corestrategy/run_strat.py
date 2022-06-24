@@ -53,6 +53,11 @@ def run_strategies(figi_list: list, df_shares: DataFrame) -> None:
     while True:
         if market_is_closed():
             run_download_data()
+            while True:
+                if market_is_closed():
+                    Event().wait(timeout=60)
+                else:
+                    run_strategies(figi_list=figi_list, df_shares=df_shares)
         else:
             start_time = perf_counter()
 
