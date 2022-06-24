@@ -60,7 +60,7 @@ def calc_strategies(figi_list: List, df_shares: DataFrame,
                                                         df_actual_signals_rsi=df_actual_signals_rsi,
                                                         df_all_lasts=df_all_lasts)
 
-    if n == 0:
+    if n != 0:
         [previous_size_df_sma, previous_size_df_rsi] = run_delivery_boy(df_rsi=df_actual_signals_rsi,
                                                                         df_sma=df_actual_signals_sma,
                                                                         previous_size_df_sma=previous_size_df_sma,

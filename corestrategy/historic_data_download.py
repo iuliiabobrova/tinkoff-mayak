@@ -164,14 +164,13 @@ def calc_std(df_close_prices: DataFrame) -> DataFrame:
     return df_price_std
 
 
-def calc_sma(df_close_prices: DataFrame) -> Tuple[DataFrame, DataFrame]:
+def calc_sma(df_close_prices: DataFrame) -> DataFrame:
     """Считает SMA"""
 
     global figi_list
 
     df_sma_final = DataFrame()  # пустой DF
     df_sma2 = DataFrame()  # пустой DF
-    df_amount_of_sma = DataFrame(columns=['amount_of_sma_rows'])  # пустой DF
 
     for x in tqdm(range(len(figi_list)), desc='Calculating_historic_SMA'):
         figi = figi_list[x]
@@ -195,14 +194,11 @@ def calc_sma(df_close_prices: DataFrame) -> Tuple[DataFrame, DataFrame]:
         # сохраняем итоговый DF в переменную, чтобы можно было добавить данные следующим циклом
         df_sma2 = df_sma_final
 
-        df_amount_of_sma.loc[figi] = [df_sma_long.size]
-
-    df_amount_of_sma.to_csv(path_or_buf='csv/amount_sma.csv', sep=';')
     df_sma_final.sort_index()
     df_sma_final.to_csv(path_or_buf='csv/sma.csv', sep=';')
     print('✅Calc of SMA done')
 
-    return df_amount_of_sma, df_sma_final
+    return df_sma_final
 
 
 def historic_sma_cross(historic_short_sma: float,
@@ -263,11 +259,11 @@ def historic_sma_cross(historic_short_sma: float,
                                          ignore_index=True)
 
 
-def calc_one_historic_signal_sma(figi: str,
-                                 x: int,
-                                 amount_of_rows: int,
-                                 df_fin_close_prices: DataFrame,
-                                 df_all_historic_sma: DataFrame) -> None:
+def calc_historic_signals_sma_by_figi(figi: str,
+                                      x: int,
+                                      amount_of_rows: int,
+                                      df_fin_close_prices: DataFrame,
+                                      df_all_historic_sma: DataFrame) -> None:
     """Подготавливает данные о [historic_last_price, historic_SMA, historic_date] для функции historic_sma_cross.
     По одному figi"""
 
@@ -311,8 +307,7 @@ def calc_one_historic_signal_sma(figi: str,
 
 
 def calc_historic_signals_sma(df_close_prices: DataFrame,
-                              df_historic_sma: DataFrame,
-                              df_amount_of_sma: DataFrame) -> DataFrame:
+                              df_historic_sma: DataFrame) -> DataFrame:
     """Подготовка данных для historic_sma_cross"""
 
     global figi_list, df_shares, df_historic_signals_sma
@@ -321,12 +316,12 @@ def calc_historic_signals_sma(df_close_prices: DataFrame,
 
     for x in tqdm(range(len(figi_list)), desc='Calculating_historic_signals_sma'):
         figi = df_historic_sma.columns[::2][x][:12]
-        amount_of_rows = int(df_amount_of_sma.amount_of_sma_rows[figi])
-        calc_one_historic_signal_sma(figi=figi,
-                                     df_fin_close_prices=df_close_prices,
-                                     df_all_historic_sma=df_historic_sma,
-                                     amount_of_rows=amount_of_rows,
-                                     x=x)
+        amount_of_rows = df_historic_sma[f'{figi}.long'].dropna().shape[0]
+        calc_historic_signals_sma_by_figi(figi=figi,
+                                          df_fin_close_prices=df_close_prices,
+                                          df_all_historic_sma=df_historic_sma,
+                                          amount_of_rows=amount_of_rows,
+                                          x=x)
 
     df_historic_signals_sma.sort_values(by='datetime', inplace=True)
     df_historic_signals_sma.reset_index(drop=True, inplace=True)
@@ -582,13 +577,10 @@ def run_download_data() -> Tuple[List, DataFrame]:
                       parse_dates=[0])
         if df.index.max().date() + timedelta(days=1) == (datetime.now() + timedelta(hours=3)).date():
             df_sma = df
-            df_amount_of_sma = read_csv(filepath_or_buffer='csv/amount_sma.csv',
-                                        sep=';',
-                                        index_col=0)
         else:
-            df_amount_of_sma, df_sma = calc_sma(df_close_prices=df_close_prices)
+            df_sma = calc_sma(df_close_prices=df_close_prices)
     else:
-        df_amount_of_sma, df_sma = calc_sma(df_close_prices=df_close_prices)
+        df_sma = calc_sma(df_close_prices=df_close_prices)
 
     # проверка сигналов sma на актуальность
     if exists(path='csv/historic_signals_sma.csv'):
@@ -600,12 +592,10 @@ def run_download_data() -> Tuple[List, DataFrame]:
             df_historic_signals_sma = df
         else:
             df_historic_signals_sma = calc_historic_signals_sma(df_close_prices=df_close_prices,
-                                                                df_historic_sma=df_sma,
-                                                                df_amount_of_sma=df_amount_of_sma)
+                                                                df_historic_sma=df_sma)
     else:
         df_historic_signals_sma = calc_historic_signals_sma(df_close_prices=df_close_prices,
-                                                            df_historic_sma=df_sma,
-                                                            df_amount_of_sma=df_amount_of_sma)
+                                                            df_historic_sma=df_sma)
 
     # проверка сигналов rsi на актуальность
     if exists(path='csv/historic_signals_rsi.csv'):
