@@ -19,5 +19,9 @@ def check_all_files_existing() -> bool:
     return all(map(lambda file: exists(file), files))
 
 
-def market_is_closed() -> bool:
+def time_to_download_data() -> bool:
     return time(hour=1, minute=45) < datetime.now().time() < time(hour=5)
+
+
+def market_is_open() -> bool:
+    return time(hour=7) < datetime.now().time() < time(hour=1, minute=45)

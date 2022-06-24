@@ -1,16 +1,13 @@
-from pandas import DataFrame, read_csv
+from pandas import DataFrame
 from time import sleep
 from dtb.settings import TELEGRAM_TOKEN as tg_token
-from os.path import exists
 from datetime import datetime
+from typing import Tuple
 
 from tgbot.models import User
 from tgbot.handlers.strategies.utils import get_last_signals
 from tgbot.handlers.strategies.keyboards import make_keyboard_for_signal
 from tgbot.handlers.broadcast_message.utils import _send_message
-
-from corestrategy.strategy_sma import columns_sma
-from corestrategy.strategy_rsi import columns_rsi
 
 
 def send_signal_to_strategy_subscribers(df: DataFrame, size_of_df_change: int) -> None:
@@ -35,7 +32,7 @@ def send_signal_to_strategy_subscribers(df: DataFrame, size_of_df_change: int) -
 def run_delivery_boy(df_rsi: DataFrame,
                      df_sma: DataFrame,
                      previous_size_df_sma: int,
-                     previous_size_df_rsi: int) -> None:
+                     previous_size_df_rsi: int) -> Tuple[int, int]:
 
     size_df_sma = df_sma.index.max()
     size_df_rsi = df_rsi.index.max()
@@ -52,3 +49,5 @@ def run_delivery_boy(df_rsi: DataFrame,
 
     previous_size_df_sma = size_df_sma
     previous_size_df_rsi = size_df_rsi
+
+    return previous_size_df_sma, previous_size_df_rsi
