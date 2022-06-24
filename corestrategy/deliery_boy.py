@@ -1,7 +1,7 @@
 from pandas import DataFrame
 from time import sleep
 from dtb.settings import TELEGRAM_TOKEN as tg_token
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Tuple
 
 from tgbot.models import User
@@ -38,13 +38,13 @@ def run_delivery_boy(df_rsi: DataFrame,
     size_df_rsi = df_rsi.index.max()
 
     if size_df_sma > previous_size_df_sma:
-        size_of_df_change = previous_size_df_sma - size_df_sma
-        print(f'trying to send {size_of_df_change} signals:', datetime.now())
+        size_of_df_change = size_df_sma - previous_size_df_sma
+        print(f'trying to send {size_of_df_change} signals:', datetime.now() + timedelta(hours=3))
         send_signal_to_strategy_subscribers(df=df_sma, size_of_df_change=size_of_df_change)
 
     if size_df_rsi > previous_size_df_rsi:
-        size_of_df_change = previous_size_df_rsi - size_df_rsi
-        print(f'trying to send {size_of_df_change} signals:', datetime.now())
+        size_of_df_change = size_df_rsi - previous_size_df_rsi
+        print(f'trying to send {size_of_df_change} signals:', datetime.now() + timedelta(hours=3))
         send_signal_to_strategy_subscribers(df=df_rsi, size_of_df_change=size_of_df_change)
 
     previous_size_df_sma = size_df_sma

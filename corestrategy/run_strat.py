@@ -60,10 +60,11 @@ def calc_strategies(figi_list: List, df_shares: DataFrame,
                                                         df_actual_signals_rsi=df_actual_signals_rsi,
                                                         df_all_lasts=df_all_lasts)
 
-    [previous_size_df_sma, previous_size_df_rsi] = run_delivery_boy(df_rsi=df_actual_signals_rsi,
-                                                                    df_sma=df_actual_signals_sma,
-                                                                    previous_size_df_sma=previous_size_df_sma,
-                                                                    previous_size_df_rsi=previous_size_df_rsi)
+    if n == 0:
+        [previous_size_df_sma, previous_size_df_rsi] = run_delivery_boy(df_rsi=df_actual_signals_rsi,
+                                                                        df_sma=df_actual_signals_sma,
+                                                                        previous_size_df_sma=previous_size_df_sma,
+                                                                        previous_size_df_rsi=previous_size_df_rsi)
     n += 1  # TODO refactor
     run_time = perf_counter() - start_time
     if run_time < 60:
