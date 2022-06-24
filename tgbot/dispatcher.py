@@ -146,7 +146,7 @@ def run_pooling():
     bot_info = Bot(TELEGRAM_TOKEN).get_me()
     bot_link = f"https://t.me/" + bot_info["username"]
 
-    print(f"Pooling of '{bot_link}' started")
+    print(f"✅Pooling of '{bot_link}' started")
 
     updater.start_polling()
     updater.idle()
