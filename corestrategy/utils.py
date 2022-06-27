@@ -1,9 +1,9 @@
 from os.path import exists
-from datetime import time, datetime, timedelta
+from datetime import time, datetime, timedelta, date
 from typing import List
 from threading import Event
 
-from pandas import DataFrame, concat
+from pandas import DataFrame, concat, DatetimeIndex
 
 from corestrategy.settings import columns_rsi, columns_sma
 
@@ -35,14 +35,14 @@ def market_is_closed() -> bool:
     return time(hour=1, minute=45) < (datetime.now() + timedelta(hours=3)).time() < time(hour=10)
 
 
-def wait_10am_msc():
-    """Помогает остановить поток до 10 утра, если время меньше 10:00"""
+def wait_until(hours: int) -> None:
+    """Помогает остановить поток до n часов"""
     print('Strategies wait until 10am')
-    timeout = (10 - datetime.now().hour + 3) * 3600  # ждём до 10 утра
+    timeout = (hours - datetime.now().hour + 3) * 3600  # ждём до 10 утра
     Event().wait(timeout=timeout)
 
 
-def check_df_size_and_save(df_list: List, signal: DataFrame):
+def check_df_size_and_save(df_list: List, signal: DataFrame) -> List:
     """Временно не используется"""
     for i in df_list:
         if df_list[i].index.max() < 5000 or df_list[i].empty is True:
@@ -58,7 +58,7 @@ def save_signal_to_df(buy_flag: int,
                       date: datetime,
                       strategy: str,
                       df_shares: DataFrame,
-                      df: DataFrame = None,
+                      df: DataFrame,
                       rsi_float: float = None) -> DataFrame:
     """Помогает сохранить множество строк с сигналами в один DataFrame"""
 
@@ -93,3 +93,19 @@ def save_signal_to_df(buy_flag: int,
                     ignore_index=True, copy=False)
 
     return df
+
+
+def historic_data_is_actual(df: DataFrame) -> bool:
+    now_date = (datetime.now() + timedelta(hours=3)).date()
+    if type(df.index) == DatetimeIndex:
+        df_date = df.index.max().date()
+    else:
+        df_date = df.datetime.max()
+    return (df_date + timedelta(days=1) >= now_date or
+            (datetime.utcnow() + timedelta(hours=3)).isoweekday() == 7 and
+            df_date + timedelta(days=2) >= now_date or
+            (datetime.utcnow() + timedelta(hours=3)).isoweekday() == 1 and
+            df_date + timedelta(days=3) >= now_date or
+            (datetime.utcnow() + timedelta(hours=3)).isoweekday() == 2 and
+            df_date + timedelta(days=4) >= now_date and
+            time() < (datetime.utcnow() + timedelta(hours=3)).time() < time(hour=7))

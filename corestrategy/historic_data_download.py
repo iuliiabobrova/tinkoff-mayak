@@ -5,22 +5,22 @@
 
 from os.path import exists, getmtime
 from logging import exception
-from typing import Tuple, List
+from typing import List
 from time import perf_counter
 
 from numpy import nanpercentile
 from pandas import DataFrame, read_csv, concat, merge, isna, to_datetime
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, time
 from tqdm import tqdm
 from time import sleep
 from tinkoff.invest import Client, CandleInterval
 
 from dtb.settings import INVEST_TOKEN
 from corestrategy.settings import *
-from corestrategy.utils import save_signal_to_df
+from corestrategy.utils import save_signal_to_df, historic_data_is_actual
 
 
-def get_shares_list_to_csv() -> Tuple[List, DataFrame]:
+def get_shares_list_to_csv() -> List:
     """Позволяет получить из API список всех акций и их параметров"""
 
     try:
@@ -37,9 +37,9 @@ def get_shares_list_to_csv() -> Tuple[List, DataFrame]:
         print('No internet connection? Reconnecting in 60 sec:')
         print(e)
         sleep(60)
-        figi_list, df_shares = get_shares_list_to_csv()
+        [figi_list, df_shares] = get_shares_list_to_csv()
 
-    return figi_list, df_shares
+    return [figi_list, df_shares]
 
 
 def last_data_parser(figi: str, df_close_prices: DataFrame) -> datetime:
@@ -114,7 +114,7 @@ def one_figi_all_candles_request(figi: str,
 
 def update_2_csv_with_historic_candles(df_fin_close_prices: DataFrame,
                                        df_fin_volumes: DataFrame.index,
-                                       figi_list: List) -> Tuple[DataFrame, DataFrame]:
+                                       figi_list: List) -> List[DataFrame]:
     """Позволяет создать два CSV-файла с historic_close_prices и historic_volumes"""
 
     for i in tqdm(range(len(figi_list)), desc='Downloading historic candles'):
@@ -146,7 +146,7 @@ def update_2_csv_with_historic_candles(df_fin_close_prices: DataFrame,
     df_fin_volumes.to_csv(path_or_buf='csv/historic_volumes.csv', sep=';')
     print('✅Successfully downloaded and saved historic candles')
 
-    return df_fin_close_prices, df_fin_volumes
+    return [df_fin_close_prices, df_fin_volumes]
 
 
 def calc_std(df_close_prices: DataFrame, figi_list: List) -> DataFrame:
@@ -298,7 +298,7 @@ def calc_one_figi_signals_rsi(rsi: DataFrame,
                               lower_rsi: float,
                               x: int,
                               df_close_prices: DataFrame,
-                              df_shares: DataFrame):
+                              df_shares: DataFrame) -> DataFrame:
     df = DataFrame(columns=columns_rsi)
 
     for y in range(len(rsi[figi])):
@@ -424,42 +424,37 @@ def calc_profit(df_historic_signals_rsi: DataFrame,
     print('✅Calculation_of_profit_is_done')
 
 
-def update_data() -> Tuple[List, DataFrame, DataFrame, DataFrame, DataFrame]:
+def update_data() -> List:
     """Функция вмещает в себя все функции выше.
     Задаёт условия, когда необходимо подгружать и рассчитывать исторические данные, а когда нет"""
 
-    figi_list, df_shares = get_shares_list_to_csv()
+    [figi_list, df_shares] = get_shares_list_to_csv()
 
     print('⏩START DATA CHECK. It can take 2 hours')
 
     # проверка close_prices на актуальность
-    now_date = (datetime.now() + timedelta(hours=3)).date()
     if exists(path='csv/historic_close_prices.csv') and exists(path='csv/historic_volumes.csv'):
         df_close_prices = read_csv(filepath_or_buffer='csv/historic_close_prices.csv',
                                    sep=';',
                                    index_col=0,
                                    parse_dates=[0],
                                    dtype=float)
-        df_date = df_close_prices.index.max().date()
-        if not (df_date + timedelta(days=1) >= now_date or
-                (datetime.now() + timedelta(hours=3)).isoweekday() == 7 and
-                df_date + timedelta(days=2) >= now_date or
-                (datetime.now() + timedelta(hours=3)).isoweekday() == 1 and
-                df_date + timedelta(days=3) >= now_date):
+
+        if not historic_data_is_actual(df=df_close_prices):
             df_v = read_csv(filepath_or_buffer='csv/historic_volumes.csv',
                             sep=';',
                             index_col=0,
                             parse_dates=[0],
                             dtype=float)
-            df_close_prices, df_volumes = update_2_csv_with_historic_candles(df_fin_close_prices=df_close_prices,
-                                                                             df_fin_volumes=df_v,
-                                                                             figi_list=figi_list)
+            [df_close_prices, df_volumes] = update_2_csv_with_historic_candles(df_fin_close_prices=df_close_prices,
+                                                                               df_fin_volumes=df_v,
+                                                                               figi_list=figi_list)
     else:
         df_fin_close_prices = DataFrame()  # пустой DF, если файла нет
         df_fin_volumes = DataFrame()  # пустой DF, если файла нет
-        df_close_prices, df_volumes = update_2_csv_with_historic_candles(df_fin_close_prices=df_fin_close_prices,
-                                                                         df_fin_volumes=df_fin_volumes,
-                                                                         figi_list=figi_list)
+        [df_close_prices, df_volumes] = update_2_csv_with_historic_candles(df_fin_close_prices=df_fin_close_prices,
+                                                                           df_fin_volumes=df_fin_volumes,
+                                                                           figi_list=figi_list)
 
     # проверка sma на актуальность
     if exists(path='csv/sma.csv'):
@@ -467,7 +462,7 @@ def update_data() -> Tuple[List, DataFrame, DataFrame, DataFrame, DataFrame]:
                       sep=';',
                       index_col=0,
                       parse_dates=[0])
-        if df.index.max().date() + timedelta(days=1) == (datetime.now() + timedelta(hours=3)).date():
+        if historic_data_is_actual(df=df):
             df_sma = df
         else:
             df_sma = calc_sma(df_close_prices=df_close_prices, figi_list=figi_list)
@@ -480,8 +475,9 @@ def update_data() -> Tuple[List, DataFrame, DataFrame, DataFrame, DataFrame]:
                       sep=';',
                       index_col=0,
                       parse_dates=['datetime'])
-        if (df.datetime.max().date() + timedelta(days=1) == (datetime.now() + timedelta(hours=3)).date() or
-                to_datetime(getmtime(filename='csv/historic_signals_sma.csv') * 1000000000).date() == now_date):
+        if (historic_data_is_actual(df=df) or
+                (to_datetime(getmtime('csv/historic_signals_sma.csv') * 1000000000).date() ==
+                 (datetime.utcnow() + timedelta(hours=3)).date())):
             df_historic_signals_sma = df
         else:
             df_historic_signals_sma = calc_historic_signals_sma(df_close_prices=df_close_prices,
@@ -500,12 +496,7 @@ def update_data() -> Tuple[List, DataFrame, DataFrame, DataFrame, DataFrame]:
                       sep=';',
                       index_col=0,
                       parse_dates=['datetime'])
-        df_2_date = df.datetime.max().date()
-        if (df_2_date + timedelta(days=1) >= now_date or
-                (datetime.now() + timedelta(hours=3)).isoweekday() == 7 and
-                df_2_date + timedelta(days=2) >= now_date or
-                (datetime.now() + timedelta(hours=3)).isoweekday() == 1 and
-                df_2_date + timedelta(days=3) >= now_date):  # TODO check logic
+        if historic_data_is_actual(df=df):
             df_historic_signals_rsi = df
         else:
             df_historic_signals_rsi = save_historic_signals_rsi(df_close_prices=df_close_prices,
@@ -519,4 +510,4 @@ def update_data() -> Tuple[List, DataFrame, DataFrame, DataFrame, DataFrame]:
     # calc_profit(df_historic_signals_rsi=df_historic_signals_rsi)  TODO RSI-profit
     print('✅All data is actual')
 
-    return figi_list, df_shares, df_close_prices, df_historic_signals_rsi,  df_historic_signals_sma
+    return [figi_list, df_shares, df_close_prices, df_historic_signals_rsi, df_historic_signals_sma, df_sma]

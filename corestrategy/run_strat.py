@@ -1,11 +1,11 @@
 from os.path import exists
-from typing import Tuple, List
+from typing import List
 from time import perf_counter
 
 from threading import Event
 from pandas import DataFrame, read_csv
 
-from corestrategy.utils import is_time_to_download_data, market_is_closed, wait_10am_msc
+from corestrategy.utils import is_time_to_download_data, market_is_closed, wait_until
 from corestrategy.actual_data_download import get_all_lasts
 from corestrategy.deliery_boy import run_delivery_boy
 from corestrategy.historic_data_download import update_data
@@ -14,7 +14,7 @@ from corestrategy.strategy_sma import calc_actual_signals_sma
 from corestrategy.strategy_rsi import calc_actual_signals_rsi
 
 
-def dataframe_preparation() -> Tuple[DataFrame, DataFrame]:
+def dataframe_preparation() -> List[DataFrame]:
     if exists('csv/actual_signals_rsi.csv'):
         df_actual_signals_rsi = read_csv(filepath_or_buffer='csv/actual_signals_rsi.csv',
                                          sep=';',
@@ -28,7 +28,7 @@ def dataframe_preparation() -> Tuple[DataFrame, DataFrame]:
     else:
         df_actual_signals_sma = DataFrame(columns=columns_sma)  # пустой DF
 
-    return df_actual_signals_rsi, df_actual_signals_sma
+    return [df_actual_signals_rsi, df_actual_signals_sma]
 
 
 def calc_strategies(figi_list: List,
@@ -38,19 +38,21 @@ def calc_strategies(figi_list: List,
                     df_close_prices: DataFrame,
                     df_actual_signals_sma: DataFrame,
                     df_actual_signals_rsi: DataFrame,
+                    df_previous_sma: DataFrame,
+                    df_historic_sma: DataFrame,
                     n: int,
                     previous_size_df_sma: int,
-                    previous_size_df_rsi: int) -> Tuple[int, int, DataFrame, DataFrame, DataFrame, DataFrame, int]:
+                    previous_size_df_rsi: int
+                    ) -> List:
     start_time = perf_counter()
 
     df_all_lasts = get_all_lasts(figi_list=figi_list)
     [df_actual_signals_sma,
-     df_historic_signals_sma] = calc_actual_signals_sma(n=n,
-                                                        figi_list=figi_list,
-                                                        df_shares=df_shares,
-                                                        df_historic_signals_sma=df_historic_signals_sma,
-                                                        df_actual_signals_sma=df_actual_signals_sma,
-                                                        df_all_lasts=df_all_lasts)
+     df_historic_signals_sma,
+     df_previous_sma] = calc_actual_signals_sma(n=n, df_shares=df_shares, df_hist_signals_sma=df_historic_signals_sma,
+                                                df_actual_signals_sma=df_actual_signals_sma, df_all_lasts=df_all_lasts,
+                                                df_historic_sma=df_historic_sma, df_previous_sma=df_previous_sma)
+    print(df_actual_signals_sma)  # TODO del
     [df_actual_signals_rsi,
      df_historic_signals_rsi] = calc_actual_signals_rsi(df_shares=df_shares,
                                                         figi_list=figi_list,
@@ -58,6 +60,7 @@ def calc_strategies(figi_list: List,
                                                         df_actual_signals_rsi=df_actual_signals_rsi,
                                                         df_all_lasts=df_all_lasts,
                                                         df_close_prices=df_close_prices)
+    print(df_actual_signals_rsi)  # TODO del
 
     if n != 0:
         [previous_size_df_sma, previous_size_df_rsi] = run_delivery_boy(df_rsi=df_actual_signals_rsi,
@@ -69,8 +72,9 @@ def calc_strategies(figi_list: List,
     if run_time < 60:
         Event().wait(timeout=60 - run_time)
 
-    return (previous_size_df_sma, previous_size_df_rsi, df_actual_signals_sma,
-            df_actual_signals_rsi, df_historic_signals_rsi, df_historic_signals_sma, n)
+    return [previous_size_df_sma, previous_size_df_rsi, df_actual_signals_sma,
+            df_actual_signals_rsi, df_historic_signals_rsi, df_historic_signals_sma,
+            df_previous_sma, n]
 
 
 def run_strategies() -> None:
@@ -84,22 +88,27 @@ def run_strategies() -> None:
 
     n = 0  # TODO refactor (n используется в def calc_actual_signals_sma для изменения первой итерации цикла)
 
-    figi_list, df_shares, df_close_prices, df_historic_signals_sma, df_historic_signals_rsi = update_data()
+    [figi_list, df_shares, df_close_prices,
+     df_historic_signals_sma, df_historic_signals_rsi, df_sma] = update_data()
+
+    df_previous_sma = DataFrame(index=figi_list, columns=['previous_short_sma', 'previous_long_sma'])
 
     while True:
-        if is_time_to_download_data():
-            figi_list, df_shares, df_close_prices, df_historic_signals_sma, df_historic_signals_rsi = update_data()
-            wait_10am_msc()
-        elif market_is_closed():
-            wait_10am_msc()
+        if market_is_closed():
+            wait_until(hours=7)
+        elif is_time_to_download_data():
+            [figi_list, df_shares, df_close_prices,
+             df_historic_signals_sma, df_historic_signals_rsi, df_sma] = update_data()
+            wait_until(hours=10)
         while not market_is_closed():
-            (previous_size_df_sma,
+            [previous_size_df_sma,
              previous_size_df_rsi,
              df_actual_signals_sma,
              df_actual_signals_rsi,
              df_historic_signals_sma,
              df_historic_signals_rsi,
-             n) = calc_strategies(figi_list=figi_list,
+             df_previous_sma,
+             n] = calc_strategies(figi_list=figi_list,
                                   df_shares=df_shares,
                                   df_historic_signals_sma=df_historic_signals_sma,
                                   df_historic_signals_rsi=df_historic_signals_rsi,
@@ -108,4 +117,6 @@ def run_strategies() -> None:
                                   df_actual_signals_rsi=df_actual_signals_rsi,
                                   df_actual_signals_sma=df_actual_signals_sma,
                                   previous_size_df_sma=previous_size_df_sma,
-                                  previous_size_df_rsi=previous_size_df_rsi)
+                                  previous_size_df_rsi=previous_size_df_rsi,
+                                  df_previous_sma=df_previous_sma,
+                                  df_historic_sma=df_sma)
