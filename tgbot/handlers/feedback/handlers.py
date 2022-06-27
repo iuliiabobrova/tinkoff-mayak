@@ -17,6 +17,9 @@ def command_feedback(update: Update, context: CallbackContext) -> int:
 
 
 def positive_feedback(update: Update, context: CallbackContext) -> int:
+    u = User.get_user(update, context)
+    u.record_command_event("positive_feedback", update)
+
     FeedbackMessage.create(
         update, context, message=static_text.positive_answer_button_text)
     query = update.callback_query
@@ -27,7 +30,10 @@ def positive_feedback(update: Update, context: CallbackContext) -> int:
     return END_FEEDBACK_STATE
 
 
-def negative_feedback(update: Update, _: CallbackContext) -> int:
+def negative_feedback(update: Update, context: CallbackContext) -> int:
+    u = User.get_user(update, context)
+    u.record_command_event("negative_feedback", update)
+
     query = update.callback_query
     query.answer()
 
@@ -54,7 +60,10 @@ def get_feedback(update: Update, context: CallbackContext) -> int:
     return END_FEEDBACK_STATE
 
 
-def cancel_feedback(update: Update, _: CallbackContext) -> int:
+def cancel_feedback(update: Update, context: CallbackContext) -> int:
+    u = User.get_user(update, context)
+    u.record_command_event("cancel_feedback", update)
+
     update.message.reply_text(static_text.feedback_cancelled)
 
     return END_FEEDBACK_STATE

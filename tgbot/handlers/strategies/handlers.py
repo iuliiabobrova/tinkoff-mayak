@@ -12,6 +12,7 @@ from tgbot.handlers.strategies.keyboards import make_keyboard_for_signal
 def sma(update: Update, context: CallbackContext) -> None:
     u = User.get_user(update, context)
     subscribed = u.subscribe_user_to_strategy(strategy_id="sma")
+    u.record_command_event("sma", update)
 
     query = update.callback_query
     query.answer()
@@ -36,6 +37,7 @@ def sma(update: Update, context: CallbackContext) -> None:
 def rsi(update: Update, context: CallbackContext) -> None:
     u = User.get_user(update, context)
     subscribed = u.subscribe_user_to_strategy(strategy_id="rsi")
+    u.record_command_event("rsi", update)
 
     query = update.callback_query
     query.answer()
