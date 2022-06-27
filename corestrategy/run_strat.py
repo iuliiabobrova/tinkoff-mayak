@@ -1,12 +1,11 @@
 from os.path import exists
 from typing import Tuple, List
 from time import perf_counter
-from datetime import datetime, timedelta
 
 from threading import Event
 from pandas import DataFrame, read_csv
 
-from corestrategy.utils import is_time_to_download_data, market_is_open
+from corestrategy.utils import is_time_to_download_data, market_is_closed, wait_10am_msc
 from corestrategy.actual_data_download import get_all_lasts
 from corestrategy.deliery_boy import run_delivery_boy
 from corestrategy.historic_data_download import update_data
@@ -90,13 +89,10 @@ def run_strategies() -> None:
     while True:
         if is_time_to_download_data():
             figi_list, df_shares, df_close_prices, df_historic_signals_sma, df_historic_signals_rsi = update_data()
-
-            timeout = (10 - datetime.now().hour + 3) * 3600  # ждём до 10 утра
-            Event().wait(timeout=timeout)
-        elif not market_is_open():
-            Event().wait(60)
-        else:
-            print('Strategies calc starts')
+            wait_10am_msc()
+        elif market_is_closed():
+            wait_10am_msc()
+        while not market_is_closed():
             (previous_size_df_sma,
              previous_size_df_rsi,
              df_actual_signals_sma,

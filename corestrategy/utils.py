@@ -1,6 +1,7 @@
 from os.path import exists
-from datetime import time, datetime
+from datetime import time, datetime, timedelta
 from typing import List
+from threading import Event
 
 from pandas import DataFrame, concat
 
@@ -26,12 +27,19 @@ def check_all_files_existing() -> bool:
 
 def is_time_to_download_data() -> bool:
     """Проверяет, подходит ли время для объемной загрузки исторических данных"""
-    return time(hour=7) < datetime.now().time() < time(hour=10)
+    return time(hour=7) < (datetime.now() + timedelta(hours=3)).time() < time(hour=10)
 
 
-def market_is_open() -> bool:
-    """Проверяет, открыта ли биржа"""
-    return time(hour=10) < datetime.now().time() < time(hour=1, minute=45)
+def market_is_closed() -> bool:
+    """Проверяет, закрыта ли биржа"""
+    return time(hour=1, minute=45) < (datetime.now() + timedelta(hours=3)).time() < time(hour=10)
+
+
+def wait_10am_msc():
+    """Помогает остановить поток до 10 утра, если время меньше 10:00"""
+    print('Strategies wait until 10am')
+    timeout = (10 - datetime.now().hour + 3) * 3600  # ждём до 10 утра
+    Event().wait(timeout=timeout)
 
 
 def check_df_size_and_save(df_list: List, signal: DataFrame):

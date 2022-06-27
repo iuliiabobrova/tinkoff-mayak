@@ -3,13 +3,13 @@
 # Figi - это уникальный ID акции
 # TODO вынести расчеты в отдельный модуль
 
-from os.path import exists
+from os.path import exists, getmtime
 from logging import exception
 from typing import Tuple, List
 from time import perf_counter
 
 from numpy import nanpercentile
-from pandas import DataFrame, read_csv, concat, merge, isna
+from pandas import DataFrame, read_csv, concat, merge, isna, to_datetime
 from datetime import datetime, timedelta
 from tqdm import tqdm
 from time import sleep
@@ -480,7 +480,8 @@ def update_data() -> Tuple[List, DataFrame, DataFrame, DataFrame, DataFrame]:
                       sep=';',
                       index_col=0,
                       parse_dates=['datetime'])
-        if df.datetime.max().date() + timedelta(days=1) == (datetime.now() + timedelta(hours=3)).date():
+        if (df.datetime.max().date() + timedelta(days=1) == (datetime.now() + timedelta(hours=3)).date() or
+                to_datetime(getmtime(filename='csv/historic_signals_sma.csv') * 1000000000).date() == now_date):
             df_historic_signals_sma = df
         else:
             df_historic_signals_sma = calc_historic_signals_sma(df_close_prices=df_close_prices,
