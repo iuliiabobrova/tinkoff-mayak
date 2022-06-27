@@ -477,7 +477,7 @@ def update_data() -> List:
                       parse_dates=['datetime'])
         if (historic_data_is_actual(df=df) or
                 (to_datetime(getmtime('csv/historic_signals_sma.csv') * 1000000000).date() ==
-                 (datetime.utcnow() + timedelta(hours=3)).date())):
+                 (datetime.utcnow() + timedelta(hours=3)).date())):  # TODO добавить хвост в 1:45
             df_historic_signals_sma = df
         else:
             df_historic_signals_sma = calc_historic_signals_sma(df_close_prices=df_close_prices,
