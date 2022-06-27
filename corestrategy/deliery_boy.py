@@ -1,6 +1,6 @@
 from pandas import DataFrame
 from time import sleep
-from dtb.settings import TELEGRAM_TOKEN as tg_token
+from dtb.settings import TELEGRAM_TOKEN as tg_token  # TODO test delete
 from datetime import datetime, timedelta
 from typing import Tuple
 
@@ -18,7 +18,7 @@ def send_signal_to_strategy_subscribers(df: DataFrame, size_of_df_change: int) -
         for user in users_with_strategy:
             _send_message(text=f"{signal}",
                           user_id=user.user_id,
-                          tg_token=tg_token,
+                          tg_token=tg_token,  # TODO test delete
                           disable_web_page_preview=True,
                           reply_markup=make_keyboard_for_signal(user.user_id, signal))
             sleep(0.4)

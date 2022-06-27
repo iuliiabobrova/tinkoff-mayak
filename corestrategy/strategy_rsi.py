@@ -1,24 +1,21 @@
 from datetime import datetime as dt
 
-from pandas import DataFrame, read_csv, concat
+from pandas import DataFrame, concat
 from numpy import nanpercentile
 
 from corestrategy.settings import *
+from corestrategy.utils import save_signal_to_df
 
 
 def calc_actual_signals_rsi(df_shares: DataFrame,
                             figi_list: list,
                             df_historic_signals_rsi: DataFrame,
                             df_actual_signals_rsi: DataFrame,
-                            df_all_lasts: DataFrame) -> tuple:
+                            df_all_lasts: DataFrame,
+                            df_close_prices: DataFrame) -> tuple:
     """Функция позволяет рассчитать индикатор RSI и актуальные сигналы на основе индикатора.
     Триггером являются самые низкие и самые высокие значения RSI, области которых обозначены в
     переменных upper_rsi_percentile, lower_rsi_percentile"""
-
-    df_close_prices = read_csv(filepath_or_buffer='csv/historic_close_prices.csv',
-                               sep=';',
-                               parse_dates=[0],
-                               index_col=0)  # TODO вынести из функции df
 
     for figi in figi_list:
         df_figi_close_prices = df_close_prices[f'{figi}'].dropna()[-1:-365:-1][::-1]
@@ -44,163 +41,42 @@ def calc_actual_signals_rsi(df_shares: DataFrame,
         if rsi_float > upper_rsi:  # если истина, записываем в DF сигнал на продажу
             if (df_actual_signals_rsi.figi == figi).any():  # TODO проверить возможность удаления условия
                 if df_actual_signals_rsi[df_actual_signals_rsi.figi == figi].tail(1).sell_flag.all() != 1:
-                    ticker = df_shares.ticker[figi]
-                    share_name = df_shares.name[figi]
-                    currency = df_shares.currency[figi]
-                    sell_flag = 1
-                    buy_flag = 0
-                    profit = 0  # TODO profit
-                    df_actual_signals_rsi = concat(objs=[df_actual_signals_rsi,
-                                                         (DataFrame(data=[[figi,
-                                                                           ticker,
-                                                                           share_name,
-                                                                           dt.strftime(dt.now(),
-                                                                                       fmt='%d-%m-%Y %H-%M-%S'),
-                                                                           last_price,
-                                                                           rsi_float,
-                                                                           sell_flag,
-                                                                           buy_flag,
-                                                                           'rsi',
-                                                                           profit,
-                                                                           currency]], columns=columns_rsi))],
-                                                   ignore_index=True)
-                    df_historic_signals_rsi = concat(objs=[df_historic_signals_rsi,
-                                                           (DataFrame(data=[[figi,
-                                                                             ticker,
-                                                                             share_name,
-                                                                             dt.strftime(dt.now(),
-                                                                                         fmt='%d-%m-%Y %H-%M-%S'),
-                                                                             last_price,
-                                                                             rsi_float,
-                                                                             sell_flag,
-                                                                             buy_flag,
-                                                                             'rsi',
-                                                                             profit,
-                                                                             currency]], columns=columns_rsi))],
-                                                     ignore_index=True)
+                    date = rsi.index[-1]
+                    df_actual_signals_rsi = save_signal_to_df(buy_flag=0, sell_flag=1, x=figi, last_price=last_price,
+                                                              figi=figi, date=date, strategy='rsi',
+                                                              rsi_float=rsi_float, df_shares=df_shares)
+                    df_historic_signals_rsi = save_signal_to_df(buy_flag=0, sell_flag=1, x=figi, last_price=last_price,
+                                                                figi=figi, date=date, strategy='rsi',
+                                                                rsi_float=rsi_float, df_shares=df_shares)
             else:
-                ticker = df_shares.ticker[figi]
-                share_name = df_shares.name[figi]
-                currency = df_shares.currency[figi]
-                sell_flag = 1
-                buy_flag = 0
-                profit = 0  # TODO profit
-                rsi_float = rsi[-1]
                 date = rsi.index[-1]
-                df_actual_signals_rsi = concat(objs=[df_actual_signals_rsi,
-                                                     (DataFrame(data=[[figi,
-                                                                       ticker,
-                                                                       share_name,
-                                                                       date,
-                                                                       last_price,
-                                                                       rsi_float,
-                                                                       sell_flag,
-                                                                       buy_flag,
-                                                                       'rsi',
-                                                                       profit,
-                                                                       currency]], columns=columns_rsi))],
-                                               ignore_index=True)
-                df_historic_signals_rsi = concat(objs=[df_historic_signals_rsi,
-                                                       (DataFrame(data=[[figi,
-                                                                         ticker,
-                                                                         share_name,
-                                                                         date,
-                                                                         last_price,
-                                                                         rsi_float,
-                                                                         sell_flag,
-                                                                         buy_flag,
-                                                                         'rsi',
-                                                                         profit,
-                                                                         currency]], columns=columns_rsi))],
-                                                 ignore_index=True)
+                df_actual_signals_rsi = save_signal_to_df(buy_flag=0, sell_flag=1, x=figi, last_price=last_price,
+                                                          figi=figi, date=date, strategy='rsi',
+                                                          rsi_float=rsi_float, df_shares=df_shares)
+                df_historic_signals_rsi = save_signal_to_df(buy_flag=0, sell_flag=1, x=figi, last_price=last_price,
+                                                            figi=figi, date=date, strategy='rsi',
+                                                            rsi_float=rsi_float, df_shares=df_shares)
 
         if rsi_float <= lower_rsi:  # если истина, записываем в DF сигнал на покупку
             if (df_actual_signals_rsi.figi == figi).any():  # TODO проверить возможность удаления условия
                 if df_actual_signals_rsi[df_actual_signals_rsi.figi == figi].tail(1).buy_flag.all() != 1:
-                    ticker = df_shares.ticker[figi]
-                    share_name = df_shares.name[figi]
-                    currency = df_shares.currency[figi]
-                    sell_flag = 0
-                    buy_flag = 1
-                    profit = 0  # TODO profit
-                    rsi_float = rsi[-1]
                     date = rsi.index[-1]
-                    df_actual_signals_rsi = concat(objs=[df_actual_signals_rsi,
-                                                         (DataFrame(data=[[figi,
-                                                                           ticker,
-                                                                           share_name,
-                                                                           date,
-                                                                           last_price,
-                                                                           rsi_float,
-                                                                           sell_flag,
-                                                                           buy_flag,
-                                                                           'rsi',
-                                                                           profit,
-                                                                           currency]], columns=columns_rsi))],
-                                                   ignore_index=True)
-                    df_historic_signals_rsi = concat(objs=[df_historic_signals_rsi,
-                                                           (DataFrame(data=[[figi,
-                                                                             ticker,
-                                                                             share_name,
-                                                                             date,
-                                                                             last_price,
-                                                                             rsi_float,
-                                                                             sell_flag,
-                                                                             buy_flag,
-                                                                             'rsi',
-                                                                             profit,
-                                                                             currency]], columns=columns_rsi))],
-                                                     ignore_index=True)
+                    df_actual_signals_rsi = save_signal_to_df(buy_flag=1, sell_flag=0, x=figi, last_price=last_price,
+                                                              figi=figi, date=date, strategy='rsi',
+                                                              rsi_float=rsi_float, df_shares=df_shares)
+                    df_historic_signals_rsi = save_signal_to_df(buy_flag=1, sell_flag=0, x=figi, last_price=last_price,
+                                                                figi=figi, date=date, strategy='rsi',
+                                                                rsi_float=rsi_float, df_shares=df_shares)
             else:
-                ticker = df_shares.ticker[figi]
-                share_name = df_shares.name[figi]
-                currency = df_shares.currency[figi]
-                sell_flag = 0
-                buy_flag = 1
-                profit = 0  # TODO profit
-                rsi_float = rsi[-1]
                 date = rsi.index[-1]
-                df_actual_signals_rsi = concat(objs=[df_actual_signals_rsi,
-                                                     (DataFrame(data=[[figi,
-                                                                       ticker,
-                                                                       share_name,
-                                                                       date,
-                                                                       last_price,
-                                                                       rsi_float,
-                                                                       sell_flag,
-                                                                       buy_flag,
-                                                                       'rsi',
-                                                                       profit,
-                                                                       currency]], columns=columns_rsi))],
-                                               ignore_index=True)
-                df_historic_signals_rsi = concat(objs=[df_historic_signals_rsi,
-                                                       (DataFrame(data=[[figi,
-                                                                         ticker,
-                                                                         share_name,
-                                                                         date,
-                                                                         last_price,
-                                                                         rsi_float,
-                                                                         sell_flag,
-                                                                         buy_flag,
-                                                                         'rsi',
-                                                                         profit,
-                                                                         currency]], columns=columns_rsi))],
-                                                 ignore_index=True)
+                df_actual_signals_rsi = save_signal_to_df(buy_flag=1, sell_flag=0, x=figi, last_price=last_price,
+                                                          figi=figi, date=date, strategy='rsi',
+                                                          rsi_float=rsi_float, df_shares=df_shares)
+                df_historic_signals_rsi = save_signal_to_df(buy_flag=1, sell_flag=0, x=figi, last_price=last_price,
+                                                            figi=figi, date=date, strategy='rsi',
+                                                            rsi_float=rsi_float, df_shares=df_shares)
 
     df_actual_signals_rsi.to_csv(path_or_buf='csv/actual_signals_rsi.csv', sep=';')
     df_historic_signals_rsi.to_csv(path_or_buf='csv/historic_signals_rsi.csv', sep=';')
 
     return df_actual_signals_rsi, df_historic_signals_rsi
-
-
-columns_rsi = ['figi',
-               'ticker',
-               'share_name',
-               'datetime',
-               'last_price',
-               'rsi_float',
-               'sell_flag',
-               'buy_flag',
-               'strategy_id',
-               'profit',
-               'currency']

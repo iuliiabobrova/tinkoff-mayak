@@ -11,6 +11,28 @@ settings_fix = True  # включает триггер стратегии на �
 upper_rsi_fix = 70
 lower_rsi_fix = 30
 
-settings_percentile = False
+settings_percentile = False  # не может быть True вместе с settings_fix
 upper_rsi_percentile = 95  # 5% самых высоких значений RSI ведут к сигналу
 lower_rsi_percentile = 2.5  # 2,5% самых низких значений RSI ведут к сигналу
+
+columns_rsi = ['figi',
+               'ticker',
+               'share_name',
+               'datetime',
+               'last_price',
+               'rsi_float',
+               'sell_flag',
+               'buy_flag',
+               'strategy_id',
+               'profit',
+               'currency']
+columns_sma = ['figi',
+               'ticker',
+               'share_name',
+               'datetime',
+               'last_price',
+               'sell_flag',
+               'buy_flag',
+               'strategy_id',
+               'profit',
+               'currency']
