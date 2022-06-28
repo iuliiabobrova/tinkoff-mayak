@@ -29,6 +29,19 @@ class Subscription(CreateTracker):
         return cls.objects.create(strategy_id=strategy_id)
 
 
+class Command(CreateUpdateTracker):
+    id = models.BigAutoField(primary_key=True)
+    command_id = models.CharField(max_length=32, **nb)
+    number_of_calls = models.IntegerField(default=0)
+
+    def __str__(self) -> str:
+        return self.command_id
+
+    @classmethod
+    def create(cls, command_id: str, update: Update) -> Command:
+        return cls.objects.create(command_id=command_id, updated_at=update.updated_at)
+
+
 class User(CreateUpdateTracker):
     user_id = models.PositiveBigIntegerField(primary_key=True)  # telegram_id
     username = models.CharField(max_length=32, **nb)
@@ -45,6 +58,7 @@ class User(CreateUpdateTracker):
     # Под капотом создается таблица связей user_id - id подписки на стратегию
     # В будущем поможет указывать юзеру несколько стратегий
     subscriptions = models.ManyToManyField(Subscription, blank=True)
+    commands = models.ManyToManyField(Command, blank=True)
 
     objects = GetOrNoneManager()  # user = User.objects.get_or_none(user_id=<some_id>)
     admins = AdminUserManager()  # User.admins.all()
@@ -107,6 +121,31 @@ class User(CreateUpdateTracker):
             query.delete()
 
         return unsubscribed
+
+    def start_observing_user_command(self, command_id: str) -> Command:
+        command = self.commands.filter(
+            command_id=command_id).first()
+
+        if not command:
+            command = Command.create(command_id=command_id)
+            self.commands.add(command)
+
+        return command
+
+    def stop_observing_user_command(self, command_id: str) -> bool:
+        query = self.commands.filter(
+            command_id=command_id)
+        observing_stopped = query.exists()
+
+        if observing_stopped:
+            query.delete()
+
+        return observing_stopped
+
+    def record_command_event(self, command_id: str, update: Update):
+        command = self.start_observing_user_command(command_id)
+        command.number_of_calls += 1
+        command.save()
 
     @property
     def invited_users(self) -> QuerySet[User]:

@@ -8,7 +8,7 @@ from tgbot.models import (
     User,
     FeedbackMessage,
     Subscription,
-    Location
+    Location, Command
 )
 from tgbot.forms import BroadcastForm
 
@@ -79,3 +79,8 @@ class SubscriptionAdmin(admin.ModelAdmin):
 @admin.register(Location)
 class LocationAdmin(admin.ModelAdmin):
     list_display = ['id', 'user_id', 'created_at']
+
+
+@admin.register(Command)
+class CommandAdmin(admin.ModelAdmin):
+    list_display = ['id', 'command_id', 'number_of_calls', 'updated_at', 'created_at']
