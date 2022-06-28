@@ -29,10 +29,9 @@ class Subscription(CreateTracker):
         return cls.objects.create(strategy_id=strategy_id)
 
 
-class Command(CreateTracker):
+class Command(CreateUpdateTracker):
     id = models.BigAutoField(primary_key=True)
     command_id = models.CharField(max_length=32, **nb)
-    updated_at = models.DateTimeField(auto_now=True)
     number_of_calls = models.IntegerField(default=0)
 
     def __str__(self) -> str:
