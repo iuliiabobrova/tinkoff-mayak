@@ -122,12 +122,12 @@ class User(CreateUpdateTracker):
 
         return unsubscribed
 
-    def start_observing_user_command(self, command_id: str) -> Command:
+    def start_observing_user_command(self, command_id: str, update: Update) -> Command:
         command = self.commands.filter(
             command_id=command_id).first()
 
         if not command:
-            command = Command.create(command_id=command_id)
+            command = Command.create(command_id, update)
             self.commands.add(command)
 
         return command
@@ -143,7 +143,7 @@ class User(CreateUpdateTracker):
         return observing_stopped
 
     def record_command_event(self, command_id: str, update: Update):
-        command = self.start_observing_user_command(command_id)
+        command = self.start_observing_user_command(command_id, update)
         command.number_of_calls += 1
         command.save()
 
