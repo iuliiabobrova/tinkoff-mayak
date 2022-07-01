@@ -8,7 +8,7 @@ from tgbot.handlers.strategies.keyboards import make_keyboard_for_strategies
 
 def command_start(update: Update, context: CallbackContext) -> None:
     u = User.get_user(update, context)
-    u.record_command_event("start", update)
+    u.record_command_event("start")
 
     update.message.reply_html(static_text.greetings,
                               reply_markup=make_keyboard_for_strategies(),
