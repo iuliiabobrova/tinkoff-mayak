@@ -83,4 +83,5 @@ class LocationAdmin(admin.ModelAdmin):
 
 @admin.register(Command)
 class CommandAdmin(admin.ModelAdmin):
-    list_display = ['id', 'command_id', 'number_of_calls', 'updated_at', 'created_at']
+    list_display = ['command_id', 'command_name',
+                    'user_id', 'username', 'created_at']

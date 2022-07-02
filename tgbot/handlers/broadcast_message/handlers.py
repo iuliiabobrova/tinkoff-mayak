@@ -22,7 +22,7 @@ def broadcast_command_with_message(update: Update, context: CallbackContext):
         )
     else:
         if update.message.text == broadcast_command:
-            # user typed only command without text for the message.
+            # user typed only command_name without text for the message.
             update.message.reply_text(
                 text=broadcast_wrong_format,
                 parse_mode=telegram.ParseMode.HTML,
@@ -51,7 +51,8 @@ def broadcast_decision_handler(update: Update, context: CallbackContext) -> None
         Shows text in HTML style with two buttons:
         Confirm and Decline
     """
-    broadcast_decision = update.callback_query.data[len(CONFIRM_DECLINE_BROADCAST):]
+    broadcast_decision = update.callback_query.data[len(
+        CONFIRM_DECLINE_BROADCAST):]
 
     entities_for_celery = update.callback_query.message.to_dict().get('entities')
     entities, text = update.callback_query.message.entities, update.callback_query.message.text

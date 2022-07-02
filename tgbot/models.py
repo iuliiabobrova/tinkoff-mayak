@@ -4,6 +4,7 @@ from typing import Union, Optional, Tuple
 
 from django.db import models
 from django.db.models import QuerySet, Manager
+from numpy import number
 from telegram import Update
 from telegram.ext import CallbackContext
 
@@ -29,17 +30,34 @@ class Subscription(CreateTracker):
         return cls.objects.create(strategy_id=strategy_id)
 
 
-class Command(CreateUpdateTracker):
-    id = models.BigAutoField(primary_key=True)
-    command_id = models.CharField(max_length=32, **nb)
-    number_of_calls = models.IntegerField(default=0)
+class Command(CreateTracker):
+    command_id = models.BigAutoField(primary_key=True)
+    command_name = models.CharField(max_length=32, **nb)
+    user_id = models.PositiveBigIntegerField()
+    username = models.CharField(max_length=32, **nb)
 
     def __str__(self) -> str:
-        return self.command_id
+        return self.command_name
 
     @classmethod
-    def create(cls, command_id: str) -> Command:
-        return cls.objects.create(command_id=command_id)
+    def record(cls, command_name: str, user_id: int, username: str):
+        cls.objects.create(command_name=command_name,
+                           user_id=user_id, username=username)
+
+    @classmethod
+    def get_command_counter(cls, command_name: str) -> number:
+        return cls.objects.filter(command_name=command_name).count()
+
+    @classmethod
+    def get_command_counter_for_user(cls, command_name: str, username_or_user_id: Union[str, int]) -> number:
+        username = str(username_or_user_id).replace("@", "").strip().lower()
+        if username.isdigit():
+            return cls.objects.filter(command_name=command_name, user_id=int(username)).count()
+        return cls.objects.filter(command_name=command_name, username__iexact=username).count()
+
+    @classmethod
+    def get_commands_counter(cls):
+        pass
 
 
 class User(CreateUpdateTracker):
@@ -58,7 +76,6 @@ class User(CreateUpdateTracker):
     # Под капотом создается таблица связей user_id - id подписки на стратегию
     # В будущем поможет указывать юзеру несколько стратегий
     subscriptions = models.ManyToManyField(Subscription, blank=True)
-    commands = models.ManyToManyField(Command, blank=True)
 
     objects = GetOrNoneManager()  # user = User.objects.get_or_none(user_id=<some_id>)
     admins = AdminUserManager()  # User.admins.all()
@@ -121,31 +138,6 @@ class User(CreateUpdateTracker):
             query.delete()
 
         return unsubscribed
-
-    def start_observing_user_command(self, command_id: str) -> Command:
-        command = self.commands.filter(
-            command_id=command_id).first()
-
-        if not command:
-            command = Command.create(command_id)
-            self.commands.add(command)
-
-        return command
-
-    def stop_observing_user_command(self, command_id: str) -> bool:
-        query = self.commands.filter(
-            command_id=command_id)
-        observing_stopped = query.exists()
-
-        if observing_stopped:
-            query.delete()
-
-        return observing_stopped
-
-    def record_command_event(self, command_id: str):
-        command = self.start_observing_user_command(command_id)
-        command.number_of_calls += 1
-        command.save()
 
     @property
     def invited_users(self) -> QuerySet[User]:

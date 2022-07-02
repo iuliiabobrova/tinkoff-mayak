@@ -2,13 +2,15 @@ from telegram import Update
 from telegram.ext import CallbackContext
 
 from tgbot.handlers.feedback import static_text
-from tgbot.models import User, FeedbackMessage
+from tgbot.models import Command, User, FeedbackMessage
 from tgbot.handlers.feedback.manage_data import ASK_FOR_FEEDBACK_STATE, GET_FEEDBACK_STATE, END_FEEDBACK_STATE
 from tgbot.handlers.feedback.keyboards import make_keyboard_for_feedback_command
 
 
 def command_feedback(update: Update, context: CallbackContext) -> int:
-    User.get_user(update, context)
+    u = User.get_user(update, context)
+    Command.record(command_name="feedback",
+                   user_id=u.user_id, username=u.username)
 
     update.message.reply_text(
         text=static_text.ask_feedback, reply_markup=make_keyboard_for_feedback_command())
@@ -18,7 +20,8 @@ def command_feedback(update: Update, context: CallbackContext) -> int:
 
 def positive_feedback(update: Update, context: CallbackContext) -> int:
     u = User.get_user(update, context)
-    u.record_command_event("positive_feedback")
+    Command.record(command_name="positive_feedback",
+                   user_id=u.user_id, username=u.username)
 
     FeedbackMessage.create(
         update, context, message=static_text.positive_answer_button_text)
@@ -32,7 +35,8 @@ def positive_feedback(update: Update, context: CallbackContext) -> int:
 
 def negative_feedback(update: Update, context: CallbackContext) -> int:
     u = User.get_user(update, context)
-    u.record_command_event("negative_feedback")
+    Command.record(command_name="negative_feedback",
+                   user_id=u.user_id, username=u.username)
 
     query = update.callback_query
     query.answer()
@@ -42,7 +46,10 @@ def negative_feedback(update: Update, context: CallbackContext) -> int:
     return GET_FEEDBACK_STATE
 
 
-def ask_for_feedback(update: Update, _: CallbackContext) -> int:
+def ask_for_feedback(update: Update, context: CallbackContext) -> int:
+    u = User.get_user(update, context)
+    Command.record(command_name="ask_for_feedback",
+                   user_id=u.user_id, username=u.username)
     query = update.callback_query
     query.answer()
 
@@ -62,7 +69,8 @@ def get_feedback(update: Update, context: CallbackContext) -> int:
 
 def cancel_feedback(update: Update, context: CallbackContext) -> int:
     u = User.get_user(update, context)
-    u.record_command_event("cancel_feedback")
+    Command.record(command_name="cancel_feedback",
+                   user_id=u.user_id, username=u.username)
 
     update.message.reply_text(static_text.feedback_cancelled)
 

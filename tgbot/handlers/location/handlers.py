@@ -8,7 +8,7 @@ from tgbot.models import User, Location
 
 
 def ask_for_location(update: Update, context: CallbackContext) -> None:
-    """ Entered /ask_location command"""
+    """ Entered /ask_location command_name"""
     u = User.get_user(update, context)
 
     context.bot.send_message(

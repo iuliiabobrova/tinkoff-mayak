@@ -27,6 +27,23 @@ class Migration(migrations.Migration):
             },
         ),
         migrations.CreateModel(
+            name='Command',
+            fields=[
+                ('created_at', models.DateTimeField(
+                    auto_now_add=True, db_index=True)),
+                ('command_id', models.BigAutoField(
+                    primary_key=True, serialize=False)),
+                ('command_name', models.CharField(
+                    blank=True, max_length=32, null=True)),
+                ('user_id', models.PositiveBigIntegerField()),
+                ('username', models.CharField(blank=True, max_length=32, null=True)),
+            ],
+            options={
+                'ordering': ('-created_at',),
+                'abstract': False,
+            },
+        ),
+        migrations.CreateModel(
             name='User',
             fields=[
                 ('created_at', models.DateTimeField(
@@ -77,20 +94,6 @@ class Migration(migrations.Migration):
                 ('longitude', models.FloatField()),
                 ('user', models.ForeignKey(
                     on_delete=django.db.models.deletion.CASCADE, to='tgbot.user')),
-            ],
-            options={
-                'ordering': ('-created_at',),
-                'abstract': False,
-            },
-        ),
-        migrations.CreateModel(
-            name='Command',
-            fields=[
-                ('created_at', models.DateTimeField(auto_now_add=True, db_index=True)),
-                ('updated_at', models.DateTimeField(auto_now=True)),
-                ('id', models.BigAutoField(primary_key=True, serialize=False)),
-                ('command_id', models.CharField(blank=True, max_length=32, null=True)),
-                ('number_of_calls', models.IntegerField())
             ],
             options={
                 'ordering': ('-created_at',),
