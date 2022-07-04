@@ -101,13 +101,13 @@ def historic_data_is_actual(df: DataFrame) -> bool:
         df_date = df.index.max().date()
     else:
         df_date = df.datetime.max()
-    return ((df_date + timedelta(days=1)).date() >= now_date or
+    return ((df_date + timedelta(days=1)) >= now_date or
             (datetime.utcnow() + timedelta(hours=3)).isoweekday() == 7 and
-            (df_date + timedelta(days=2)).date() >= now_date or
+            (df_date + timedelta(days=2)) >= now_date or
             (datetime.utcnow() + timedelta(hours=3)).isoweekday() == 1 and
-            (df_date + timedelta(days=3)).date() >= now_date or
+            (df_date + timedelta(days=3)) >= now_date or
             (datetime.utcnow() + timedelta(hours=3)).isoweekday() == 2 and
-            (df_date + timedelta(days=4)).date() >= now_date and
+            (df_date + timedelta(days=4)) >= now_date and
             time() < (datetime.utcnow() + timedelta(hours=3)).time() < time(hour=7))
 # TODO FutureWarning: Comparison of Timestamp with datetime.date is deprecated in order to match the standard library behavior. In a future version these will be considered non-comparable. Use 'ts == pd.Timestamp(date)' or 'ts.date() == date' instead.
 #   return (df_date + timedelta(days=1) >= now_date or
