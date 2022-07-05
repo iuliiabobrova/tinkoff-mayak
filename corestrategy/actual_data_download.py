@@ -1,20 +1,22 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 from threading import Event
 
 from pandas import DataFrame
 from tinkoff.invest import Client
 
 from dtb.settings import INVEST_TOKEN
+from corestrategy.utils import _now
 
 
 def last_is_actual(last_price) -> bool:
-    a = datetime.utcnow().year == last_price.time.year
-    b = datetime.utcnow().month == last_price.time.month
-    c = datetime.utcnow().day == last_price.time.day
-    d = datetime.utcnow().hour == last_price.time.hour
-    e = datetime.utcnow().minute == last_price.time.minute
-    f = datetime.utcnow().minute - 1 == last_price.time.minute
-    g = datetime.utcnow().minute - 2 == last_price.time.minute
+    _now_ = _now() - timedelta(hours=3)
+    a = _now_.year == last_price.time.year
+    b = _now_.month == last_price.time.month
+    c = _now_.day == last_price.time.day
+    d = _now_.hour == last_price.time.hour
+    e = _now_.minute == last_price.time.minute
+    f = _now_.minute - 1 == last_price.time.minute
+    g = _now_.minute - 2 == last_price.time.minute
     h = e or f or g
 
     return a and b and c and d and h
@@ -22,7 +24,6 @@ def last_is_actual(last_price) -> bool:
 
 def get_all_lasts(figi_list: list) -> DataFrame:
     """Получаем самые последние цены всех акций"""
-    # TODO исключить уточняющие свечи?
 
     try:
         with Client(INVEST_TOKEN) as client:
@@ -40,7 +41,5 @@ def get_all_lasts(figi_list: list) -> DataFrame:
         print(e)
         Event().wait(60)
         df = get_all_lasts(figi_list)
-
-    print(df)
 
     return df

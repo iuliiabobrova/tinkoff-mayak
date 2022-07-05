@@ -10,14 +10,14 @@ from time import perf_counter
 
 from numpy import nanpercentile
 from pandas import DataFrame, read_csv, concat, merge, isna, to_datetime
-from datetime import datetime, timedelta, time
+from datetime import datetime, timedelta
 from tqdm import tqdm
 from time import sleep
 from tinkoff.invest import Client, CandleInterval
 
 from dtb.settings import INVEST_TOKEN
 from corestrategy.settings import *
-from corestrategy.utils import save_signal_to_df, historic_data_is_actual
+from corestrategy.utils import save_signal_to_df, historic_data_is_actual, _now
 
 
 def get_shares_list_to_csv() -> List:
@@ -42,7 +42,8 @@ def get_shares_list_to_csv() -> List:
     return [figi_list, df_shares]
 
 
-def last_data_parser(figi: str, df_close_prices: DataFrame) -> datetime:
+def last_data_parser(figi: str,
+                     df_close_prices: DataFrame) -> datetime:
     """Позволяет получить самую позднюю дату из csv-файла c Historic_close_prices в формате datetime.
     используется в def one_figi_all_candles_request"""
 
@@ -67,18 +68,17 @@ def one_figi_all_candles_request(figi: str,
                                  df_fin_close_prices: DataFrame) -> float:
     """Запрашивает все ОТСУТСТВУЮЩИЕ свечи по ОДНОМУ str(figi).
     Далее парсит полученные данные (цену закрытия, объёмы).
-    Сохраняет данные в df.
-    Вспомогательная функция для def create_2_csv_with_historic_candles"""
+    Сохраняет данные в df."""
 
     def_start_time = perf_counter()
 
-    now_ = datetime.now() + timedelta(hours=3)
-    now_date = now_ - timedelta(hours=now_.hour - 5,
-                                minutes=now_.minute,
-                                seconds=now_.second,
-                                microseconds=now_.microsecond)
+    now_date = _now()
+    now_date = now_date - timedelta(hours=now_date.hour - 5,
+                                    minutes=now_date.minute,
+                                    seconds=now_date.second,
+                                    microseconds=now_date.microsecond)
     date_from_ = now_date - timedelta(days=days) + timedelta(days=1)
-    to_ = (datetime.now() + timedelta(hours=3)) + timedelta(days=1)
+    to_ = _now() + timedelta(days=1)
 
     with Client(INVEST_TOKEN) as client:
         for candle in client.get_all_candles(
@@ -89,22 +89,22 @@ def one_figi_all_candles_request(figi: str,
                 # запрашиваемая размерность японских свеч (дневная)
                 interval=CandleInterval.CANDLE_INTERVAL_DAY,
         ):
-            if candle.is_complete:
-                # из ответа API парсит дату
-                data = datetime(year=candle.time.year,
-                                month=candle.time.month,
-                                day=candle.time.day)
-                # из ответа API парсит цену закрытия
-                if candle.close.nano != 0:
-                    close_price = float(f'{candle.close.units}.{candle.close.nano}')
-                else:
-                    close_price = candle.close.units
-                volume = candle.volume  # из ответа API парсит объём торгов
 
-                # если данных нет, записывает новые
-                df_fin_close_prices.at[data, figi] = close_price
-                # если данных нет, записывает новые
-                df_fin_volumes.at[data, figi] = volume
+            # из ответа API парсит дату
+            data = datetime(year=candle.time.year,
+                            month=candle.time.month,
+                            day=candle.time.day)
+            # из ответа API парсит цену закрытия
+            if candle.close.nano != 0:
+                close_price = float(f'{candle.close.units}.{candle.close.nano}')
+            else:
+                close_price = candle.close.units
+            volume = candle.volume  # из ответа API парсит объём торгов
+
+            # если данных нет, записывает новые
+            df_fin_close_prices.at[data, figi] = close_price
+            # если данных нет, записывает новые
+            df_fin_volumes.at[data, figi] = volume
 
     def_stop_time = perf_counter()
     time_on_def = def_stop_time - def_start_time
@@ -120,7 +120,7 @@ def update_2_csv_with_historic_candles(df_fin_close_prices: DataFrame,
     for i in tqdm(range(len(figi_list)), desc='Downloading historic candles'):
         figi = figi_list[i]
         last_date = last_data_parser(figi, df_fin_close_prices)
-        days = ((datetime.now() + timedelta(hours=3)) - last_date).days
+        days = (_now() - last_date).days
         # выше подготовка входных данных для функций
 
         if days != 0:  # проверка: не запрашиваем ли существующие в CSV данные
@@ -149,7 +149,8 @@ def update_2_csv_with_historic_candles(df_fin_close_prices: DataFrame,
     return [df_fin_close_prices, df_fin_volumes]
 
 
-def calc_std(df_close_prices: DataFrame, figi_list: List) -> DataFrame:
+def calc_std(df_close_prices: DataFrame,
+             figi_list: List) -> DataFrame:
     """Считает стандартное отклонение"""
 
     df_price_std = DataFrame()  # пустой DF
@@ -163,7 +164,8 @@ def calc_std(df_close_prices: DataFrame, figi_list: List) -> DataFrame:
     return df_price_std
 
 
-def calc_sma(df_close_prices: DataFrame, figi_list: List) -> DataFrame:
+def calc_sma(df_close_prices: DataFrame,
+             figi_list: List) -> DataFrame:
     """Считает SMA"""
 
     df_sma_final = DataFrame()  # пустой DF
@@ -312,18 +314,28 @@ def calc_one_figi_signals_rsi(rsi: DataFrame,
                 historic_last_price_rsi = df_close_prices[figi][historic_date_rsi_2]
 
         if rsi_float >= upper_rsi:  # если истина, записываем в DF сигнал на продажу
-            df = save_signal_to_df(buy_flag=0, sell_flag=1, x=x,
+            df = save_signal_to_df(buy_flag=0,
+                                   sell_flag=1,
+                                   x=x,
                                    last_price=historic_last_price_rsi,
-                                   figi=figi, date=historic_date_rsi, strategy='rsi',
-                                   rsi_float=rsi_float, df_shares=df_shares,
+                                   figi=figi,
+                                   date=historic_date_rsi,
+                                   strategy='rsi',
+                                   rsi_float=rsi_float,
+                                   df_shares=df_shares,
                                    df=df)
 
         if rsi_float <= lower_rsi:  # если истина, записываем в DF сигнал на покупку
 
-            df = save_signal_to_df(buy_flag=1, sell_flag=0, x=x,
+            df = save_signal_to_df(buy_flag=1,
+                                   sell_flag=0,
+                                   x=x,
                                    last_price=historic_last_price_rsi,
-                                   figi=figi, date=historic_date_rsi, strategy='rsi',
-                                   rsi_float=rsi_float, df_shares=df_shares,
+                                   figi=figi,
+                                   date=historic_date_rsi,
+                                   strategy='rsi',
+                                   rsi_float=rsi_float,
+                                   df_shares=df_shares,
                                    df=df)
 
     return df
@@ -352,7 +364,6 @@ def calc_historic_signals_rsi(df_close_prices: DataFrame,
         # нижняя граница RSI, значение 2.5 отсеивает RSI примерно ниже 30
         lower_rsi = nanpercentile(rsi[figi], lower_rsi_percentile)
 
-        df_historic_signals_rsi = []
         df_historic_signals_rsi = calc_one_figi_signals_rsi(rsi=rsi,
                                                             figi=figi,
                                                             upper_rsi=upper_rsi,
@@ -378,6 +389,7 @@ def save_historic_signals_rsi(df_close_prices: DataFrame,
     df_historic_signals_rsi.sort_values(by='datetime', inplace=True)
     df_historic_signals_rsi.reset_index(drop=True, inplace=True)
     df_historic_signals_rsi.to_csv(path_or_buf='csv/historic_signals_rsi.csv', sep=';')
+    print('✅Historic signals RSI are saved')
 
     return df_historic_signals_rsi
 
@@ -441,19 +453,33 @@ def update_data() -> List:
                                    dtype=float)
 
         if not historic_data_is_actual(df=df_close_prices):
-            df_v = read_csv(filepath_or_buffer='csv/historic_volumes.csv',
-                            sep=';',
-                            index_col=0,
-                            parse_dates=[0],
-                            dtype=float)
+            df_volumes = read_csv(filepath_or_buffer='csv/historic_volumes.csv',
+                                  sep=';',
+                                  index_col=0,
+                                  parse_dates=[0],
+                                  dtype=float)
             [df_close_prices, df_volumes] = update_2_csv_with_historic_candles(df_fin_close_prices=df_close_prices,
-                                                                               df_fin_volumes=df_v,
+                                                                               df_fin_volumes=df_volumes,
                                                                                figi_list=figi_list)
     else:
-        df_fin_close_prices = DataFrame()  # пустой DF, если файла нет
-        df_fin_volumes = DataFrame()  # пустой DF, если файла нет
-        [df_close_prices, df_volumes] = update_2_csv_with_historic_candles(df_fin_close_prices=df_fin_close_prices,
-                                                                           df_fin_volumes=df_fin_volumes,
+        if exists(path='csv/historic_close_prices.csv'):
+            df_close_prices = read_csv(filepath_or_buffer='csv/historic_close_prices.csv',
+                                       sep=';',
+                                       index_col=0,
+                                       parse_dates=[0],
+                                       dtype=float)
+        else:
+            df_close_prices = DataFrame()  # пустой DF, если файла нет
+        if exists(path='csv/historic_volumes.csv'):
+            df_volumes = read_csv(filepath_or_buffer='csv/historic_volumes.csv',
+                                  sep=';',
+                                  index_col=0,
+                                  parse_dates=[0],
+                                  dtype=float)
+        else:
+            df_volumes = DataFrame()  # пустой DF, если файла нет
+        [df_close_prices, df_volumes] = update_2_csv_with_historic_candles(df_fin_close_prices=df_close_prices,
+                                                                           df_fin_volumes=df_volumes,
                                                                            figi_list=figi_list)
 
     # проверка sma на актуальность
@@ -477,7 +503,7 @@ def update_data() -> List:
                       parse_dates=['datetime'])
         if (historic_data_is_actual(df=df) or
                 (to_datetime(getmtime('csv/historic_signals_sma.csv') * 1000000000).date() ==
-                 (datetime.utcnow() + timedelta(hours=3)).date())):  # TODO добавить хвост в 1:45
+                 _now().date())):  # TODO добавить хвост в 1:45
             df_historic_signals_sma = df
         else:
             df_historic_signals_sma = calc_historic_signals_sma(df_close_prices=df_close_prices,
@@ -499,6 +525,7 @@ def update_data() -> List:
         if historic_data_is_actual(df=df):
             df_historic_signals_rsi = df
         else:
+            print('RSI historic signals are not actual')
             df_historic_signals_rsi = save_historic_signals_rsi(df_close_prices=df_close_prices,
                                                                 df_shares=df_shares,
                                                                 figi_list=figi_list)
@@ -510,4 +537,4 @@ def update_data() -> List:
     # calc_profit(df_historic_signals_rsi=df_historic_signals_rsi)  TODO RSI-profit
     print('✅All data is actual')
 
-    return [figi_list, df_shares, df_close_prices, df_historic_signals_rsi, df_historic_signals_sma, df_sma]
+    return [figi_list, df_shares, df_close_prices, df_historic_signals_sma, df_historic_signals_rsi, df_sma]
