@@ -33,7 +33,7 @@ def get_all_lasts(figi_list: list) -> DataFrame:
         for n in request_lasts:
             if last_is_actual(last_price=n):
                 date_time = datetime(n.time.year, n.time.month, n.time.day, n.time.hour, n.time.minute, n.time.second)
-                last_price = float(f"{n.price.units}.{n.price.nano}")  # парсим last_price из ответа API
+                last_price = float(n.price.units + n.price.nano / 1000000000)  # парсим last_price из ответа API
                 figi = n.figi  # получает figi из ответа API
                 df.loc[len(df.index)] = [figi, last_price, date_time]  # сохраняем данные в DF
         df.set_index('figi', inplace=True)  # индексируем DF по figi

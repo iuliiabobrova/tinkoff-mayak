@@ -1,6 +1,6 @@
 from typing import List
 from pandas import DataFrame, to_datetime
-from datetime import time, datetime, timedelta
+from datetime import time, datetime
 
 from tgbot.handlers.strategies.static_text import buy_signal, sell_signal, rsi_high, rsi_low, sma_high, sma_low
 
