@@ -21,7 +21,7 @@ class Signal:
     def __str__(self) -> str:
         signal = buy_signal if self.buy_flag == 1 else sell_signal
         date = to_datetime(self.datetime, dayfirst=True)
-        if date - timedelta(hours=3) == time(hour=0, minute=0, second=0):
+        if date == time(hour=0, minute=0, second=0):
             date = date.date()
         else:
             date = datetime.strftime(date, format='%d-%m-%Y %Hч:%Mм')
