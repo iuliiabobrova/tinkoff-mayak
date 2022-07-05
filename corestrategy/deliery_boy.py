@@ -23,28 +23,3 @@ def send_signal_to_strategy_subscribers(df: DataFrame) -> None:
             sleep(0.4)
 
     print("Signals sent!")
-
-
-def run_delivery_boy(df_sma: DataFrame,
-                     df_rsi: DataFrame,
-                     previous_size_df_sma: int,
-                     previous_size_df_rsi: int) -> List[int]:
-    """Проверяет, увеличился ли DataFrame с актуальными сигналами. Если да, высылает сигналы"""
-
-    size_df_sma = df_sma.index.max()
-    size_df_rsi = df_rsi.index.max()
-
-    if size_df_sma > previous_size_df_sma:
-        size_of_df_change = size_df_sma - previous_size_df_sma
-        print(f'trying to send {size_of_df_change} signals:', datetime.now() + timedelta(hours=3))
-        send_signal_to_strategy_subscribers(df=df_sma, size_of_df_change=size_of_df_change)
-
-    if size_df_rsi > previous_size_df_rsi:
-        size_of_df_change = size_df_rsi - previous_size_df_rsi
-        print(f'trying to send {size_of_df_change} signals:', datetime.now() + timedelta(hours=3))
-        send_signal_to_strategy_subscribers(df=df_rsi, size_of_df_change=size_of_df_change)
-
-    previous_size_df_sma = size_df_sma
-    previous_size_df_rsi = size_df_rsi
-
-    return [previous_size_df_sma, previous_size_df_rsi]
