@@ -70,41 +70,49 @@ def one_figi_all_candles_request(figi: str,
     Далее парсит полученные данные (цену закрытия, объёмы).
     Сохраняет данные в df."""
 
-    def_start_time = perf_counter()
+    try:
+        def_start_time = perf_counter()
 
-    now_date = _now()
-    now_date = now_date - timedelta(hours=now_date.hour - 5,
-                                    minutes=now_date.minute,
-                                    seconds=now_date.second,
-                                    microseconds=now_date.microsecond)
-    date_from_ = now_date - timedelta(days=days) + timedelta(days=1)
-    to_ = _now() + timedelta(days=1)
+        now_date = _now()
+        now_date = now_date - timedelta(hours=now_date.hour - 5,
+                                        minutes=now_date.minute,
+                                        seconds=now_date.second,
+                                        microseconds=now_date.microsecond)
+        date_from_ = now_date - timedelta(days=days) + timedelta(days=1)
+        to_ = _now() + timedelta(days=1)
 
-    with Client(INVEST_TOKEN) as client:
-        for candle in client.get_all_candles(
-                figi=figi,  # сюда должен поступать только один figi (id акции)
-                # период времени определяется динамически функцией last_data_parser
-                from_=date_from_,
-                to=to_,
-                # запрашиваемая размерность японских свеч (дневная)
-                interval=CandleInterval.CANDLE_INTERVAL_DAY,
-        ):
+        with Client(INVEST_TOKEN) as client:
+            for candle in client.get_all_candles(
+                    figi=figi,  # сюда должен поступать только один figi (id акции)
+                    # период времени определяется динамически функцией last_data_parser
+                    from_=date_from_,
+                    to=to_,
+                    # запрашиваемая размерность японских свеч (дневная)
+                    interval=CandleInterval.CANDLE_INTERVAL_DAY,
+            ):
+                # из ответа API парсит дату
+                data = datetime(year=candle.time.year,
+                                month=candle.time.month,
+                                day=candle.time.day)
+                # из ответа API парсит цену закрытия
+                close_price = float(candle.close.units + candle.close.nano / 1000000000)
+                volume = candle.volume  # из ответа API парсит объём торгов
 
-            # из ответа API парсит дату
-            data = datetime(year=candle.time.year,
-                            month=candle.time.month,
-                            day=candle.time.day)
-            # из ответа API парсит цену закрытия
-            close_price = float(candle.close.units + candle.close.nano / 1000000000)
-            volume = candle.volume  # из ответа API парсит объём торгов
+                # если данных нет, записывает новые
+                df_fin_close_prices.at[data, figi] = close_price
+                # если данных нет, записывает новые
+                df_fin_volumes.at[data, figi] = volume
 
-            # если данных нет, записывает новые
-            df_fin_close_prices.at[data, figi] = close_price
-            # если данных нет, записывает новые
-            df_fin_volumes.at[data, figi] = volume
+        def_stop_time = perf_counter()
+        time_on_def = def_stop_time - def_start_time
 
-    def_stop_time = perf_counter()
-    time_on_def = def_stop_time - def_start_time
+    except Exception as e:
+        print(e)
+        sleep(60)
+        time_on_def = one_figi_all_candles_request(figi=figi,
+                                                   days=days,
+                                                   df_fin_volumes=df_fin_volumes,
+                                                   df_fin_close_prices=df_fin_close_prices)
 
     return time_on_def
 
@@ -121,20 +129,14 @@ def update_2_csv_with_historic_candles(df_fin_close_prices: DataFrame,
         # выше подготовка входных данных для функций
 
         if days != 0:  # проверка: не запрашиваем ли существующие в CSV данные
-            try:
-                time_on_def = one_figi_all_candles_request(figi=figi,
-                                                           days=days,
-                                                           df_fin_volumes=df_fin_volumes,
-                                                           df_fin_close_prices=df_fin_close_prices)
-                if time_on_def < 0.201:
-                    sleep(0.201 - time_on_def)  # API позволяет делать не более 300 запросов в минуту
-            except Exception as e:
-                print(e)
-                sleep(60)
-                one_figi_all_candles_request(figi=figi,
-                                             days=days,
-                                             df_fin_volumes=df_fin_volumes,
-                                             df_fin_close_prices=df_fin_close_prices)
+            time_on_def = one_figi_all_candles_request(figi=figi,
+                                                       days=days,
+                                                       df_fin_volumes=df_fin_volumes,
+                                                       df_fin_close_prices=df_fin_close_prices)
+            if time_on_def < 0.201 and days < 367:
+                sleep(0.201 - time_on_def)  # API позволяет делать не более 300 запросов в минуту
+            elif time_on_def < 3:
+                sleep(3 - time_on_def)
 
     df_fin_close_prices = df_fin_close_prices.sort_index()  # сортируем DF по датам по возрастанию
     df_fin_close_prices.to_csv(path_or_buf='csv/historic_close_prices.csv', sep=';')

@@ -55,7 +55,7 @@ def sma_cross(actual_short_sma: float,
     if crossing_sell:
         df_last_signal = df_hist_sgnls[df_hist_sgnls.figi == figi].tail(1)
         if not df_last_signal.empty:
-            if df_last_signal.sell_flag.all() != 1:
+            if df_last_signal.sell_flag.all() != 1 and df_shares.loc[df_shares.figi == figi].short_enabled_flag[0]:
                 df_hist_sgnls = save_signal_to_df(buy_flag=0,
                                                   sell_flag=1,
                                                   x=figi,
@@ -66,7 +66,7 @@ def sma_cross(actual_short_sma: float,
                                                   df=df_hist_sgnls,
                                                   df_shares=df_shares)
                 send_signal_to_strategy_subscribers(df=df_hist_sgnls)
-        else:
+        elif df_shares.loc[df_shares.figi == figi].short_enabled_flag[0]:
             df_hist_sgnls = save_signal_to_df(buy_flag=0,
                                               sell_flag=1,
                                               x=figi,
