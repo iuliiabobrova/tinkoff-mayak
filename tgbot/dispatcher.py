@@ -176,10 +176,19 @@ def set_up_commands(bot_instance: Bot) -> None:
             # 'time': 'Настроить удобное время уведомлений',
             'off': 'Отписаться от стратегий',
             'feedback': 'Оставить фидбэк'
+        },
+        'en': {
+            'strategy': 'Выбрать другую стратегию',
+            'str_info': 'Узнать о стратегиях больше️',
+            # 'stock': 'Изменить набор бумаг️',
+            # 'time': 'Настроить удобное время уведомлений',
+            'off': 'Отписаться от стратегий',
+            'feedback': 'Оставить фидбэк'
         }
     }
 
     bot_instance.delete_my_commands()
+
     for language_code in langs_with_commands:
         bot_instance.set_my_commands(
             language_code=language_code,
@@ -194,4 +203,5 @@ def set_up_commands(bot_instance: Bot) -> None:
 set_up_commands(bot)
 
 n_workers = 0 if DEBUG else 4
-dispatcher = setup_dispatcher(Dispatcher(bot, update_queue=None, workers=n_workers, use_context=True))
+dispatcher = setup_dispatcher(Dispatcher(
+    bot, update_queue=None, workers=n_workers, use_context=True))
