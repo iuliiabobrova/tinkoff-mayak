@@ -3,6 +3,7 @@ from telegram import ParseMode, Update
 from telegram.ext import CallbackContext
 from time import sleep
 
+from tgbot.handlers.turn_off_signals.static_text import sma_off_signals, rsi_off_signals, no_subscriptions_to_strategy
 from tgbot.models import User, Command
 from tgbot.handlers.strategies import static_text
 from tgbot.handlers.strategies.utils import get_last_signals
@@ -65,17 +66,15 @@ def rsi_connect(update: Update, context: CallbackContext) -> None:
 
 def sma_disconnect(update: Update, context: CallbackContext) -> None:
     u = User.get_user(update, context)
-    strategy_id = ''
-
     unsubscribed = u.unsubscribe_user_from_strategy(strategy_id="sma")
 
     query = update.callback_query
     query.answer()
 
     if unsubscribed:
-        query.edit_message_text(text='Сигналы по стратегии SMA выключены')
+        query.edit_message_text(text=sma_off_signals)
     else:
-        query.edit_message_text(text='Вы не подписаны на данную стратегию')
+        query.edit_message_text(text=no_subscriptions_to_strategy)
 
 
 def rsi_disconnect(update: Update, context: CallbackContext) -> None:
@@ -86,6 +85,12 @@ def rsi_disconnect(update: Update, context: CallbackContext) -> None:
     query.answer()
 
     if unsubscribed:
-        query.edit_message_text(text='Сигналы по стратегии RSI выключены')
+        query.edit_message_text(text=rsi_off_signals)
     else:
-        query.edit_message_text(text='Вы не подписаны на данную стратегию')
+        query.edit_message_text(text=no_subscriptions_to_strategy)
+
+
+def all_disconnect(update: Update, context: CallbackContext) -> None:
+    u = User.get_user(update, context)
+    u.unsubscribe_user_from_all_strategies()
+    update.message.reply_text(static_text.off_signals)

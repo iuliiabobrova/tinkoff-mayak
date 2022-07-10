@@ -130,7 +130,7 @@ class User(CreateUpdateTracker):
 
         return not has_subscription
 
-    def user_strategies(self) -> List[Subscription]:
+    def user_subscriptions(self) -> List[Subscription]:
         return list(self.subscriptions.all())
 
     def unsubscribe_user_from_all_strategies(self) -> bool:

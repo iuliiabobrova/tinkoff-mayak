@@ -1,9 +1,10 @@
+from typing import List
+
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
 from tgbot.handlers.strategies.manage_data import SMA_CONNECT_BUTTON, RSI_CONNECT_BUTTON, SMA_DISCONNECT_BUTTON, \
-    RSI_DISCONNECT_BUTTON
-from tgbot.handlers.strategies.static_text import sma_button_text, rsi_button_text
-from tgbot.handlers.strategies.utils import Signal
+    RSI_DISCONNECT_BUTTON, ALL_DISCONNECT_BUTTON
+from tgbot.handlers.strategies.static_text import sma_button_text, rsi_button_text, all_button_text
 
 
 def make_keyboard_for_strategies_connect() -> InlineKeyboardMarkup:
@@ -17,13 +18,14 @@ def make_keyboard_for_strategies_connect() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(buttons)
 
 
-def make_keyboard_for_strategies_disconnect() -> InlineKeyboardMarkup:
-    buttons = [
-        [InlineKeyboardButton(sma_button_text,
-                              callback_data=f'{SMA_DISCONNECT_BUTTON}')],
-        [InlineKeyboardButton(rsi_button_text,
-                              callback_data=f'{RSI_DISCONNECT_BUTTON}')]
-    ]
+def make_keyboard_for_strategies_disconnect(strategies: List[str]) -> InlineKeyboardMarkup:
+    buttons = []
+    for strategy in strategies:
+        if strategy == 'sma':
+            buttons.append([InlineKeyboardButton(sma_button_text, callback_data=f'{SMA_DISCONNECT_BUTTON}')])
+        elif strategy == 'rsi':
+            buttons.append([InlineKeyboardButton(rsi_button_text, callback_data=f'{RSI_DISCONNECT_BUTTON}')])
+    buttons.append([InlineKeyboardButton(all_button_text, callback_data=f'{ALL_DISCONNECT_BUTTON}')])
 
     return InlineKeyboardMarkup(buttons)
 
