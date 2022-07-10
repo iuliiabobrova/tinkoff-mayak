@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Union, Optional, Tuple
+from typing import Union, Optional, Tuple, List
 
 from django.db import models
 from django.db.models import QuerySet, Manager
@@ -130,8 +130,20 @@ class User(CreateUpdateTracker):
 
         return not has_subscription
 
-    def unsubscribe_user_from_strategies(self) -> bool:
+    def user_strategies(self) -> List[Subscription]:
+        return list(self.subscriptions.all())
+
+    def unsubscribe_user_from_all_strategies(self) -> bool:
         query = self.subscriptions.all()
+        unsubscribed = query.exists()
+
+        if unsubscribed:
+            query.delete()
+
+        return unsubscribed
+
+    def unsubscribe_user_from_strategy(self, strategy_id: str) -> bool:
+        query = self.subscriptions.filter(strategy_id=strategy_id)
         unsubscribed = query.exists()
 
         if unsubscribed:

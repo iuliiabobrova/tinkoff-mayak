@@ -9,7 +9,7 @@ from tgbot.handlers.strategies.utils import get_last_signals
 from tgbot.handlers.strategies.keyboards import make_keyboard_for_signal
 
 
-def sma(update: Update, context: CallbackContext) -> None:
+def sma_connect(update: Update, context: CallbackContext) -> None:
     u = User.get_user(update, context)
     subscribed = u.subscribe_user_to_strategy(strategy_id="sma")
     Command.record(command_name="sma",
@@ -36,7 +36,7 @@ def sma(update: Update, context: CallbackContext) -> None:
         query.edit_message_text(text=static_text.already_subscribed)
 
 
-def rsi(update: Update, context: CallbackContext) -> None:
+def rsi_connect(update: Update, context: CallbackContext) -> None:
     u = User.get_user(update, context)
     subscribed = u.subscribe_user_to_strategy(strategy_id="rsi")
     Command.record(command_name="rsi",
@@ -61,3 +61,31 @@ def rsi(update: Update, context: CallbackContext) -> None:
 
     else:
         query.edit_message_text(text=static_text.already_subscribed)
+
+
+def sma_disconnect(update: Update, context: CallbackContext) -> None:
+    u = User.get_user(update, context)
+    strategy_id = ''
+
+    unsubscribed = u.unsubscribe_user_from_strategy(strategy_id="sma")
+
+    query = update.callback_query
+    query.answer()
+
+    if unsubscribed:
+        query.edit_message_text(text='Сигналы по стратегии SMA выключены')
+    else:
+        query.edit_message_text(text='Вы не подписаны на данную стратегию')
+
+
+def rsi_disconnect(update: Update, context: CallbackContext) -> None:
+    u = User.get_user(update, context)
+    unsubscribed = u.unsubscribe_user_from_strategy(strategy_id="rsi")
+
+    query = update.callback_query
+    query.answer()
+
+    if unsubscribed:
+        query.edit_message_text(text='Сигналы по стратегии RSI выключены')
+    else:
+        query.edit_message_text(text='Вы не подписаны на данную стратегию')
