@@ -37,7 +37,7 @@ def is_time_to_download_data() -> bool:
 def market_is_closed() -> bool:
     """Проверяет, закрыта ли биржа"""
     if _now().isoweekday() == 6:
-        return time(hour=1, minute=45) < _now().time() < time(hour=24)
+        return time(hour=1, minute=45) < _now().time() < time(hour=23, minute=59, second=59)
     elif _now().isoweekday() == 7:
         return True
     else:
