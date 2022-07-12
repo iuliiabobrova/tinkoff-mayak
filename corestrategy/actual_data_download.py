@@ -41,5 +41,6 @@ def get_all_lasts(figi_list: list) -> DataFrame:
         print(e)
         Event().wait(60)
         df = get_all_lasts(figi_list)
+        print('lasts are successfully downloaded')
 
     return df

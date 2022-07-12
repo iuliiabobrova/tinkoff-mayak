@@ -7,7 +7,8 @@ from pandas import DataFrame
 from corestrategy.utils import (is_time_to_download_data,
                                 market_is_closed,
                                 wait_until_download_time,
-                                wait_until_market_is_open)
+                                wait_until_market_is_open,
+                                _now)
 from corestrategy.actual_data_download import get_all_lasts
 from corestrategy.historic_data_download import update_data
 from corestrategy.strategy_sma import calc_actual_signals_sma
@@ -55,10 +56,10 @@ def run_strategies() -> None:
 
     while True:
         if market_is_closed():
-            print('Market is closed now')
+            print(f'Market is closed now. Now-time: {_now()}')
             wait_until_download_time()
         elif is_time_to_download_data():
-            print('Time to download data')
+            print(f'Time to download data. Now-time: {_now()}')
             [figi_list, df_shares, df_close_prices,
              df_historic_signals_sma, df_historic_signals_rsi, df_sma] = update_data()
             wait_until_market_is_open()
