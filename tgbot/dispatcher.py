@@ -170,7 +170,7 @@ def process_telegram_event(update_json):
 def set_up_commands(bot_instance: Bot) -> None:
     langs_with_commands: Dict[str, Dict[str, str]] = {
         'ru': {
-            'strategy': 'Выбрать другую стратегию',
+            'strategy': 'Выбрать стратегию',
             'str_info': 'Узнать о стратегиях больше️',
             # 'stock': 'Изменить набор бумаг️',
             # 'time': 'Настроить удобное время уведомлений',
@@ -178,7 +178,7 @@ def set_up_commands(bot_instance: Bot) -> None:
             'feedback': 'Оставить фидбэк'
         },
         'en': {
-            'strategy': 'Выбрать другую стратегию',
+            'strategy': 'Выбрать стратегию',
             'str_info': 'Узнать о стратегиях больше️',
             # 'stock': 'Изменить набор бумаг️',
             # 'time': 'Настроить удобное время уведомлений',
