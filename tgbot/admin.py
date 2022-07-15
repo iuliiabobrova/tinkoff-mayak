@@ -26,7 +26,22 @@ class UserAdmin(admin.ModelAdmin):
     list_filter = ["is_blocked_bot", ]
     search_fields = ('username', 'user_id')
 
-    actions = ['broadcast']
+    actions = ['broadcast', 'save_csv']
+
+    def save_csv(self, request, queryset):
+        import csv
+        from django.http import HttpResponse
+        meta = self.model._meta
+        field_names = [field.name for field in meta.fields]
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename={}.csv'.format(meta)
+        writer = csv.writer(response)
+        writer.writerow(field_names)
+        for obj in queryset:
+            row = writer.writerow([getattr(obj, field) for field in field_names])
+        return response
+
+
 
     def broadcast(self, request, queryset):
         """ Select users via check mark in django-admin panel, then select "Broadcast" to send message"""
@@ -74,7 +89,20 @@ class SubscriptionAdmin(admin.ModelAdmin):
         UserInline
     ]
     list_display = ['id', 'strategy_id', 'created_at']
+    actions = ['broadcast', 'save_csv']
 
+    def save_csv(self, request, queryset):
+        import csv
+        from django.http import HttpResponse
+        meta = self.model._meta
+        field_names = [field.name for field in meta.fields]
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename={}.csv'.format(meta)
+        writer = csv.writer(response)
+        writer.writerow(field_names)
+        for obj in queryset:
+            row = writer.writerow([getattr(obj, field) for field in field_names])
+        return response
 
 @admin.register(Location)
 class LocationAdmin(admin.ModelAdmin):
@@ -85,3 +113,17 @@ class LocationAdmin(admin.ModelAdmin):
 class CommandAdmin(admin.ModelAdmin):
     list_display = ['command_id', 'command_name',
                     'user_id', 'username', 'created_at']
+    actions = ['broadcast', 'save_csv']
+
+    def save_csv(self, request, queryset):
+        import csv
+        from django.http import HttpResponse
+        meta = self.model._meta
+        field_names = [field.name for field in meta.fields]
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename={}.csv'.format(meta)
+        writer = csv.writer(response)
+        writer.writerow(field_names)
+        for obj in queryset:
+            row = writer.writerow([getattr(obj, field) for field in field_names])
+        return response
