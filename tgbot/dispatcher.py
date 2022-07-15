@@ -35,8 +35,9 @@ from tgbot.handlers.location import handlers as location_handlers
 from tgbot.handlers.onboarding import handlers as onboarding_handlers
 from tgbot.handlers.stock import handlers as stock_handlers
 from tgbot.handlers.strategies import handlers as strategies_handlers
-from tgbot.handlers.strategies.manage_data import SMA_CONNECT_BUTTON, RSI_CONNECT_BUTTON, SMA_DISCONNECT_BUTTON, \
-    RSI_DISCONNECT_BUTTON, ALL_DISCONNECT_BUTTON
+from tgbot.handlers.strategies.manage_data import SMA_CONNECT_BUTTON, RSI_CONNECT_BUTTON
+from tgbot.handlers.turn_off_signals.manage_data import SMA_DISCONNECT_BUTTON, RSI_DISCONNECT_BUTTON, \
+    ALL_DISCONNECT_BUTTON
 from tgbot.handlers.strategy_info import handlers as strategy_info_handlers
 from tgbot.handlers.time import handlers as time_handlers
 from tgbot.handlers.turn_off_signals import handlers as turn_off_signals_handlers
@@ -103,11 +104,11 @@ def setup_dispatcher(dp):
 
     # handle strategy disconnect
     dp.add_handler(CallbackQueryHandler(
-        strategies_handlers.sma_disconnect, pattern=f"^{SMA_DISCONNECT_BUTTON}$"))
+        turn_off_signals_handlers.sma_disconnect, pattern=f"^{SMA_DISCONNECT_BUTTON}$"))
     dp.add_handler(CallbackQueryHandler(
-        strategies_handlers.rsi_disconnect, pattern=f"^{RSI_DISCONNECT_BUTTON}$"))
+        turn_off_signals_handlers.rsi_disconnect, pattern=f"^{RSI_DISCONNECT_BUTTON}$"))
     dp.add_handler(CallbackQueryHandler(
-        strategies_handlers.rsi_disconnect, pattern=f"^{ALL_DISCONNECT_BUTTON}$"))
+        turn_off_signals_handlers.rsi_disconnect, pattern=f"^{ALL_DISCONNECT_BUTTON}$"))
 
     # stock command
     dp.add_handler(CommandHandler(

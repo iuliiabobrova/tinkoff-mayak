@@ -62,35 +62,3 @@ def rsi_connect(update: Update, context: CallbackContext) -> None:
 
     else:
         query.edit_message_text(text=static_text.already_subscribed)
-
-
-def sma_disconnect(update: Update, context: CallbackContext) -> None:
-    u = User.get_user(update, context)
-    unsubscribed = u.unsubscribe_user_from_strategy(strategy_id="sma")
-
-    query = update.callback_query
-    query.answer()
-
-    if unsubscribed:
-        query.edit_message_text(text=sma_off_signals)
-    else:
-        query.edit_message_text(text=no_subscriptions_to_strategy)
-
-
-def rsi_disconnect(update: Update, context: CallbackContext) -> None:
-    u = User.get_user(update, context)
-    unsubscribed = u.unsubscribe_user_from_strategy(strategy_id="rsi")
-
-    query = update.callback_query
-    query.answer()
-
-    if unsubscribed:
-        query.edit_message_text(text=rsi_off_signals)
-    else:
-        query.edit_message_text(text=no_subscriptions_to_strategy)
-
-
-def all_disconnect(update: Update, context: CallbackContext) -> None:
-    u = User.get_user(update, context)
-    u.unsubscribe_user_from_all_strategies()
-    update.message.reply_text(static_text.off_signals)
