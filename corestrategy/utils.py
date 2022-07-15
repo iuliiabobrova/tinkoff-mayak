@@ -49,19 +49,19 @@ def wait_until_download_time() -> None:
 
     if _now().isoweekday() == 6:
         timeout = hours_7 + hours_48 - (hours_now_in_seconds + minutes_now_in_seconds + seconds_now)
-        print('Strategies wait until 7am Monday. Timeout in seconds:', timeout, 'Now-time:', _now())
+        #print('Strategies wait until 7am Monday. Timeout in seconds:', timeout, 'Now-time:', _now())
         Event().wait(timeout=timeout)
 
     elif _now().isoweekday() == 7:
         timeout = hours_7 + hours_24 - (hours_now_in_seconds + minutes_now_in_seconds + seconds_now)
-        print('Strategies wait until 7am Monday. Timeout in seconds:', timeout, 'Now-time:', _now())
+        #print('Strategies wait until 7am Monday. Timeout in seconds:', timeout, 'Now-time:', _now())
         Event().wait(timeout=timeout)
 
     else:
         timeout = 36000 - (hours_now_in_seconds + minutes_now_in_seconds + seconds_now)
         if timeout < 0:
             timeout = 0
-            print('Strategies wait until 7am today. Timeout in seconds:', timeout, 'Now-time:', _now())
+            #print('Strategies wait until 7am today. Timeout in seconds:', timeout, 'Now-time:', _now())
         Event().wait(timeout=timeout)
 
 
@@ -70,7 +70,7 @@ def wait_until_market_is_open() -> None:
     timeout = 36000 - (hours_now_in_seconds + minutes_now_in_seconds + seconds_now)
     if timeout < 0:
         timeout = 0
-    print('Strategies wait until 10am today. Timeout in seconds:', timeout, 'Now-time:', _now())
+    #print('Strategies wait until 10am today. Timeout in seconds:', timeout, 'Now-time:', _now())
     Event().wait(timeout=timeout)
 
 

@@ -57,4 +57,4 @@ def send_signal_to_strategy_subscribers(df: DataFrame) -> None:
                           reply_markup=make_keyboard_for_signal(user.user_id, signal))
             sleep(0.4)
 
-    print(f"Signals sent! Now-time: {_now()}")
+    #print(f"Signals sent! Now-time: {_now()}")
