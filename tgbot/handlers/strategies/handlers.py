@@ -3,13 +3,14 @@ from telegram import ParseMode, Update
 from telegram.ext import CallbackContext
 from time import sleep
 
+from tgbot.handlers.turn_off_signals.static_text import sma_off_signals, rsi_off_signals, no_subscriptions_to_strategy
 from tgbot.models import User, Command
 from tgbot.handlers.strategies import static_text
 from tgbot.handlers.strategies.utils import get_last_signals
 from tgbot.handlers.strategies.keyboards import make_keyboard_for_signal
 
 
-def sma(update: Update, context: CallbackContext) -> None:
+def sma_connect(update: Update, context: CallbackContext) -> None:
     u = User.get_user(update, context)
     subscribed = u.subscribe_user_to_strategy(strategy_id="sma")
     Command.record(command_name="sma",
@@ -36,7 +37,7 @@ def sma(update: Update, context: CallbackContext) -> None:
         query.edit_message_text(text=static_text.already_subscribed)
 
 
-def rsi(update: Update, context: CallbackContext) -> None:
+def rsi_connect(update: Update, context: CallbackContext) -> None:
     u = User.get_user(update, context)
     subscribed = u.subscribe_user_to_strategy(strategy_id="rsi")
     Command.record(command_name="rsi",
