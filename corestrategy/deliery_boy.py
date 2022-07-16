@@ -10,6 +10,7 @@ from dtb.celery import app
 from tgbot.handlers.strategies.utils import get_last_signals
 from tgbot.handlers.strategies.keyboards import make_keyboard_for_signal
 from tgbot.models import User
+from corestrategy.utils import _now
 
 
 def _send_message(
@@ -34,7 +35,6 @@ def _send_message(
             entities=entities,
         )
     except error.Unauthorized:
-        print(f"Can't send message to {user_id}. Reason: Bot was stopped.")
         User.objects.filter(user_id=user_id).update(is_blocked_bot=True)
         success = False
     else:
@@ -57,4 +57,4 @@ def send_signal_to_strategy_subscribers(df: DataFrame) -> None:
                           reply_markup=make_keyboard_for_signal(user.user_id, signal))
             sleep(0.4)
 
-    print("Signals sent!")
+    #print(f"Signals sent! Now-time: {_now()}")

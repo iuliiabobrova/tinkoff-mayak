@@ -4,7 +4,6 @@
 # TODO вынести расчеты в отдельный модуль
 
 from os.path import exists, getmtime
-from logging import exception
 from typing import List
 from time import perf_counter
 
@@ -52,8 +51,7 @@ def last_data_parser(figi: str,
             # выделяем последнюю дату из df_close_prices
             figi_last_date = df_close_prices[figi].dropna().index.max()
 
-        except Exception as e:
-            exception(e)
+        except KeyError:  # исключает случай, когда появляется новый figi
             figi_last_date = datetime(2012, 1, 1)
 
     else:
