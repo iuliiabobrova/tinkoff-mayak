@@ -23,6 +23,10 @@ class Signal:
             self.currency = '€'
         elif self.currency=='rub':
             self.currency = '₽'
+        try:
+            self.last_price = round(self.last_price,2)
+        except:
+            pass
 
     def __str__(self) -> str:
         signal = buy_signal if self.buy_flag == 1 else sell_signal
