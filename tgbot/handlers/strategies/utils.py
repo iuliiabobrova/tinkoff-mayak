@@ -17,6 +17,12 @@ class Signal:
         self.strategy_id = kwargs['strategy_id']
         self.profit = kwargs['profit']
         self.currency = kwargs['currency']
+        if self.currency=='usd':
+            self.currency = '$'
+        elif self.currency=='eur':
+            self.currency = '€'
+        elif self.currency=='rub':
+            self.currency = '₽'
 
     def __str__(self) -> str:
         signal = buy_signal if self.buy_flag == 1 else sell_signal
@@ -24,7 +30,7 @@ class Signal:
         if date == time(hour=0, minute=0, second=0):
             date = date.date()
         else:
-            date = datetime.strftime(date, format='%d-%m-%Y %Hч:%Mм')
+            date = datetime.strftime(date, format='%d-%m-%Y %H:%M(MSK)')
 
         if self.strategy_id == 'sma':
             description = sma_high if self.buy_flag == 1 else sma_low
@@ -32,7 +38,7 @@ class Signal:
             description = rsi_low if self.buy_flag == 1 else rsi_high
 
         return f"{signal}\n" \
-            f"{self.share_name} (${self.ticker}) {self.last_price} {self.currency}\n" \
+            f"{self.share_name}(<b>{self.ticker}</b>) {self.last_price}<b>{self.currency}</b>\n" \
             f"{description}\n" \
             f"🕓{date}"
 
