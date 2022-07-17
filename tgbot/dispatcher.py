@@ -108,7 +108,7 @@ def setup_dispatcher(dp):
     dp.add_handler(CallbackQueryHandler(
         turn_off_signals_handlers.rsi_disconnect, pattern=f"^{RSI_DISCONNECT_BUTTON}$"))
     dp.add_handler(CallbackQueryHandler(
-        turn_off_signals_handlers.rsi_disconnect, pattern=f"^{ALL_DISCONNECT_BUTTON}$"))
+        turn_off_signals_handlers.all_disconnect, pattern=f"^{ALL_DISCONNECT_BUTTON}$"))
 
     # stock command
     dp.add_handler(CommandHandler(

@@ -54,4 +54,8 @@ def rsi_disconnect(update: Update, context: CallbackContext) -> None:
 def all_disconnect(update: Update, context: CallbackContext) -> None:
     u = User.get_user(update, context)
     u.unsubscribe_user_from_all_strategies()
-    update.message.reply_text(static_text.off_signals)
+
+    query = update.callback_query
+    query.answer()
+
+    query.edit_message_text(text=static_text.off_signals)
