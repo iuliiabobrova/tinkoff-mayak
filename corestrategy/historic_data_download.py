@@ -131,8 +131,9 @@ def update_2_csv_with_historic_candles(df_fin_close_prices: DataFrame,
                                                        days=days,
                                                        df_fin_volumes=df_fin_volumes,
                                                        df_fin_close_prices=df_fin_close_prices)
-            if time_on_def < 0.201 and days < 367:
-                sleep(0.201 - time_on_def)  # API позволяет делать не более 300 запросов в минуту
+            if days < 367:
+                if time_on_def < 0.201:
+                    sleep(0.201 - time_on_def)  # API позволяет делать не более 300 запросов в минуту
             elif time_on_def < 3:
                 sleep(3 - time_on_def)
 
@@ -168,27 +169,31 @@ def calc_sma(df_close_prices: DataFrame,
     df_sma_final = DataFrame()  # пустой DF
     df_sma2 = DataFrame()  # пустой DF
 
-    for x in tqdm(range(len(figi_list)), desc='Calculating_historic_SMA'):
-        figi = figi_list[x]
-        df = df_close_prices[figi].dropna()  # получаем для каждого figi его Series с close_prices
+    print('Start calculating SMA-float')
+    for figi in figi_list:
+        try:
+            df = df_close_prices[figi].dropna()  # получаем для каждого figi его Series с close_prices
 
-        # скользящие средние за короткий период
-        df_sma_short = df.rolling(period_of_short_sma - 1).mean().dropna().round(3)
-        # скользящие средние за длинный период
-        df_sma_long = df.rolling(period_of_long_sma - 1).mean().dropna().round(3)
+            # скользящие средние за короткий период
+            df_sma_short = df.rolling(period_of_short_sma - 1).mean().dropna().round(3)
+            # скользящие средние за длинный период
+            df_sma_long = df.rolling(period_of_long_sma - 1).mean().dropna().round(3)
 
-        # объединяем короткие и длинные скользящие средние
-        df_ma = concat([df_sma_short, df_sma_long], axis=1, copy=False)
-        # именуем столбцы корректно
-        df_ma.columns = [f'{figi}.short', f'{figi}.long']
-        # добавляем данные к итоговому DataFrame df_sma_final
-        df_sma_final = merge(df_sma2,
-                             df_ma,
-                             left_index=True,
-                             right_index=True,
-                             how='outer')
-        # сохраняем итоговый DF в переменную, чтобы можно было добавить данные следующим циклом
-        df_sma2 = df_sma_final
+            # объединяем короткие и длинные скользящие средние
+            df_ma = concat([df_sma_short, df_sma_long], axis=1, copy=False)
+            # именуем столбцы корректно
+            df_ma.columns = [f'{figi}.short', f'{figi}.long']
+            # добавляем данные к итоговому DataFrame df_sma_final
+            df_sma_final = merge(df_sma2,
+                                 df_ma,
+                                 left_index=True,
+                                 right_index=True,
+                                 how='outer')
+            # сохраняем итоговый DF в переменную, чтобы можно было добавить данные следующим циклом
+            df_sma2 = df_sma_final
+
+        except KeyError:
+            print('No data to calc. Figi:', figi)
 
     df_sma_final.sort_index()
     df_sma_final.to_csv(path_or_buf='csv/sma.csv', sep=';')
@@ -204,7 +209,6 @@ def historic_sma_cross(historic_short_sma: float,
                        historic_last_price: float,
                        historic_date: datetime,
                        figi: str,
-                       x: int,
                        df_shares: DataFrame,
                        df_historic_signals_sma: DataFrame) -> DataFrame:
     """Считает, пересекаются ли скользящие средние, а далее формирует сигнал, сохраняет его в DF"""
@@ -216,19 +220,18 @@ def historic_sma_cross(historic_short_sma: float,
 
     # формирование сигнала, запись в DF
     if crossing_sell:
-        df_historic_signals_sma = save_signal_to_df(buy_flag=0, sell_flag=1, x=x, last_price=historic_last_price,
-                                                    figi=figi, date=historic_date, strategy='sma',
-                                                    df=df_historic_signals_sma, df_shares=df_shares)
+        df_historic_signals_sma = save_signal_to_df(buy_flag=0, sell_flag=1, last_price=historic_last_price, figi=figi,
+                                                    date=historic_date, strategy='sma', df_shares=df_shares,
+                                                    df=df_historic_signals_sma)
     if crossing_buy:
-        df_historic_signals_sma = save_signal_to_df(buy_flag=1, sell_flag=0, x=x, last_price=historic_last_price,
-                                                    figi=figi, date=historic_date, strategy='sma',
-                                                    df=df_historic_signals_sma, df_shares=df_shares)
+        df_historic_signals_sma = save_signal_to_df(buy_flag=1, sell_flag=0, last_price=historic_last_price, figi=figi,
+                                                    date=historic_date, strategy='sma', df_shares=df_shares,
+                                                    df=df_historic_signals_sma)
 
     return df_historic_signals_sma
 
 
 def calc_historic_signals_sma_by_figi(figi: str,
-                                      x: int,
                                       amount_of_rows: int,
                                       df_fin_close_prices: DataFrame,
                                       df_all_historic_sma: DataFrame,
@@ -257,7 +260,6 @@ def calc_historic_signals_sma_by_figi(figi: str,
                                                          historic_last_price=historic_last_price,
                                                          historic_date=historic_date,
                                                          figi=figi,
-                                                         x=x,
                                                          df_shares=df_shares,
                                                          df_historic_signals_sma=df_historic_signals_sma)
     return df_historic_signals_sma
@@ -265,21 +267,20 @@ def calc_historic_signals_sma_by_figi(figi: str,
 
 def calc_historic_signals_sma(df_close_prices: DataFrame,
                               df_historic_sma: DataFrame,
-                              figi_list: List,
                               df_shares: DataFrame) -> DataFrame:
     """Подготовка данных для historic_sma_cross"""
 
     # Подготовка DF
     df_historic_signals_sma = DataFrame(columns=columns_sma)
 
-    for x in tqdm(range(len(figi_list)), desc='Calculating_historic_signals_sma'):
-        figi = df_historic_sma.columns[::2][x][:12]
+    print('⏩Historic signals SMA calc starts')
+    for figi in df_historic_sma.columns[::2]:
+        figi = figi[:12]
         amount_of_rows = df_historic_sma[f'{figi}.long'].dropna().shape[0]
         df_historic_signals_sma = calc_historic_signals_sma_by_figi(figi=figi,
                                                                     df_fin_close_prices=df_close_prices,
                                                                     df_all_historic_sma=df_historic_sma,
                                                                     amount_of_rows=amount_of_rows,
-                                                                    x=x,
                                                                     df_shares=df_shares,
                                                                     df_historic_signals_sma=df_historic_signals_sma)
 
@@ -295,7 +296,6 @@ def calc_one_figi_signals_rsi(rsi: DataFrame,
                               figi: str,
                               upper_rsi: float,
                               lower_rsi: float,
-                              x: int,
                               df_close_prices: DataFrame,
                               df_shares: DataFrame) -> DataFrame:
     df = DataFrame(columns=columns_rsi)
@@ -311,35 +311,20 @@ def calc_one_figi_signals_rsi(rsi: DataFrame,
                 historic_last_price_rsi = df_close_prices[figi][historic_date_rsi_2]
 
         if rsi_float >= upper_rsi:  # если истина, записываем в DF сигнал на продажу
-            df = save_signal_to_df(buy_flag=0,
-                                   sell_flag=1,
-                                   x=x,
-                                   last_price=historic_last_price_rsi,
-                                   figi=figi,
-                                   date=historic_date_rsi,
-                                   strategy='rsi',
-                                   rsi_float=rsi_float,
-                                   df_shares=df_shares,
-                                   df=df)
+            df = save_signal_to_df(buy_flag=0, sell_flag=1, last_price=historic_last_price_rsi, figi=figi,
+                                   date=historic_date_rsi, strategy='rsi', df_shares=df_shares, df=df,
+                                   rsi_float=rsi_float)
 
         if rsi_float <= lower_rsi:  # если истина, записываем в DF сигнал на покупку
 
-            df = save_signal_to_df(buy_flag=1,
-                                   sell_flag=0,
-                                   x=x,
-                                   last_price=historic_last_price_rsi,
-                                   figi=figi,
-                                   date=historic_date_rsi,
-                                   strategy='rsi',
-                                   rsi_float=rsi_float,
-                                   df_shares=df_shares,
-                                   df=df)
+            df = save_signal_to_df(buy_flag=1, sell_flag=0, last_price=historic_last_price_rsi, figi=figi,
+                                   date=historic_date_rsi, strategy='rsi', df_shares=df_shares, df=df,
+                                   rsi_float=rsi_float)
 
     return df
 
 
 def calc_historic_signals_rsi(df_close_prices: DataFrame,
-                              figi_list: List,
                               df_shares: DataFrame) -> DataFrame:
     """Функция позволяет рассчитать индикатор RSI и сигналы на основе индикатора.
     Триггером являются самые низкие и самые высокие значения RSI, области которых обозначены в
@@ -354,8 +339,8 @@ def calc_historic_signals_rsi(df_close_prices: DataFrame,
     rs = ema_up / ema_down
     rsi = (100 - (100 / (1 + rs))).round(2)
 
-    for x in tqdm(range(len(figi_list)), desc='Calculating_historic_rsi_signals'):
-        figi = figi_list[x]
+    print('⏩Historic signals RSI calc starts')
+    for figi in df_close_prices.columns:
         # верхняя граница RSI, значение 95 отсеивает RSI примерно выше 70
         upper_rsi = nanpercentile(rsi[figi], upper_rsi_percentile)
         # нижняя граница RSI, значение 2.5 отсеивает RSI примерно ниже 30
@@ -365,7 +350,6 @@ def calc_historic_signals_rsi(df_close_prices: DataFrame,
                                                             figi=figi,
                                                             upper_rsi=upper_rsi,
                                                             lower_rsi=lower_rsi,
-                                                            x=x,
                                                             df_close_prices=df_close_prices,
                                                             df_shares=df_shares)
 
@@ -373,12 +357,10 @@ def calc_historic_signals_rsi(df_close_prices: DataFrame,
 
 
 def save_historic_signals_rsi(df_close_prices: DataFrame,
-                              figi_list: List,
                               df_shares: DataFrame) -> DataFrame:
     """Обеспечивает сохранение сигналов в DataFrame и CSV"""
 
     list_df = calc_historic_signals_rsi(df_close_prices=df_close_prices,
-                                        figi_list=figi_list,
                                         df_shares=df_shares)
     df_historic_signals_rsi = concat(objs=list_df, ignore_index=True, copy=False)
 
@@ -400,7 +382,7 @@ def calc_profit(df_historic_signals_rsi: DataFrame,
     df_profit_rsi = DataFrame(columns=['profit'])
     profit = 'error'
 
-    for x in tqdm(range(len(figi_list)), desc='Calc_profit_of_sma_signals'):
+    for x in tqdm(range(len(figi_list)), desc='Calc_profit_of_sma_signals'):  # TODO убрать tqdm
         try:
             figi = figi_list[x]
             if (df_historic_signals_sma.loc[figi].tail(2).sell_flag[0]) == 0 \
@@ -414,7 +396,7 @@ def calc_profit(df_historic_signals_rsi: DataFrame,
             # TODO заменить try-except на if (когда нет сигналов по бумаге)
             pass
 
-    for x in tqdm(range(len(figi_list)), desc='Calc_profit_of_rsi_signals'):
+    for x in tqdm(range(len(figi_list)), desc='Calc_profit_of_rsi_signals'):  # TODO убрать tqdm
         try:
             figi = figi_list[x]
             if (df_historic_signals_rsi.loc[figi].tail(2).sell_flag[0]) == 0 and (
@@ -505,12 +487,10 @@ def update_data() -> List:
         else:
             df_historic_signals_sma = calc_historic_signals_sma(df_close_prices=df_close_prices,
                                                                 df_historic_sma=df_sma,
-                                                                figi_list=figi_list,
                                                                 df_shares=df_shares)
     else:
         df_historic_signals_sma = calc_historic_signals_sma(df_close_prices=df_close_prices,
                                                             df_historic_sma=df_sma,
-                                                            figi_list=figi_list,
                                                             df_shares=df_shares)
 
     # проверка rsi-signals на актуальность
@@ -524,12 +504,10 @@ def update_data() -> List:
         else:
             print('RSI historic signals are not actual')
             df_historic_signals_rsi = save_historic_signals_rsi(df_close_prices=df_close_prices,
-                                                                df_shares=df_shares,
-                                                                figi_list=figi_list)
+                                                                df_shares=df_shares)
     else:
         df_historic_signals_rsi = save_historic_signals_rsi(df_close_prices=df_close_prices,
-                                                            df_shares=df_shares,
-                                                            figi_list=figi_list)
+                                                            df_shares=df_shares)
     # calc_std(df_close_prices=df_close_prices) TODO (пока не используется)
     # calc_profit(df_historic_signals_rsi=df_historic_signals_rsi)  TODO RSI-profit
     print('✅All data is actual')

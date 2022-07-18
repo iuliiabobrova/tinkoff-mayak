@@ -44,29 +44,15 @@ def calc_actual_signals_rsi(df_shares: DataFrame,
                     if (df_last_signal.sell_flag.all() != 1 and df_last_signal.datetime.all() != _now() and
                             df_shares.loc[df_shares.index == figi].short_enabled_flag[0]):
                         date = rsi.index[-1]
-                        df_hist_sgnls = save_signal_to_df(buy_flag=0,
-                                                          sell_flag=1,
-                                                          x=figi,
-                                                          last_price=last_price,
-                                                          figi=figi,
-                                                          date=date,
-                                                          strategy='rsi',
-                                                          rsi_float=rsi,
-                                                          df_shares=df_shares,
-                                                          df=df_hist_sgnls)
+                        df_hist_sgnls = save_signal_to_df(buy_flag=0, sell_flag=1, last_price=last_price, figi=figi,
+                                                          date=date, strategy='rsi', df_shares=df_shares,
+                                                          df=df_hist_sgnls, rsi_float=rsi)
                         send_signal_to_strategy_subscribers(df=df_hist_sgnls)
                 elif df_shares.loc[df_shares.index == figi].short_enabled_flag[0]:
                     date = rsi.index[-1]
-                    df_hist_sgnls = save_signal_to_df(buy_flag=0,
-                                                      sell_flag=1,
-                                                      x=figi,
-                                                      last_price=last_price,
-                                                      figi=figi,
-                                                      date=date,
-                                                      strategy='rsi',
-                                                      rsi_float=rsi,
-                                                      df_shares=df_shares,
-                                                      df=df_hist_sgnls)
+                    df_hist_sgnls = save_signal_to_df(buy_flag=0, sell_flag=1, last_price=last_price, figi=figi,
+                                                      date=date, strategy='rsi', df_shares=df_shares, df=df_hist_sgnls,
+                                                      rsi_float=rsi)
                     send_signal_to_strategy_subscribers(df=df_hist_sgnls)
 
             if rsi[0] <= lower_rsi:  # если истина, записываем в DF сигнал на покупку
@@ -74,29 +60,15 @@ def calc_actual_signals_rsi(df_shares: DataFrame,
                 if not df_last_signal.empty:
                     if df_last_signal.buy_flag.all() != 1 and df_last_signal.datetime.all() != _now():
                         date = rsi.index[-1]
-                        df_hist_sgnls = save_signal_to_df(buy_flag=1,
-                                                          sell_flag=0,
-                                                          x=figi,
-                                                          last_price=last_price,
-                                                          figi=figi,
-                                                          date=date,
-                                                          strategy='rsi',
-                                                          rsi_float=rsi,
-                                                          df_shares=df_shares,
-                                                          df=df_hist_sgnls)
+                        df_hist_sgnls = save_signal_to_df(buy_flag=1, sell_flag=0, last_price=last_price, figi=figi,
+                                                          date=date, strategy='rsi', df_shares=df_shares,
+                                                          df=df_hist_sgnls, rsi_float=rsi)
                         send_signal_to_strategy_subscribers(df=df_hist_sgnls)
                 else:
                     date = rsi.index[-1]
-                    df_hist_sgnls = save_signal_to_df(buy_flag=1,
-                                                      sell_flag=0,
-                                                      x=figi,
-                                                      last_price=last_price,
-                                                      figi=figi,
-                                                      date=date,
-                                                      strategy='rsi',
-                                                      rsi_float=rsi,
-                                                      df_shares=df_shares,
-                                                      df=df_hist_sgnls)
+                    df_hist_sgnls = save_signal_to_df(buy_flag=1, sell_flag=0, last_price=last_price, figi=figi,
+                                                      date=date, strategy='rsi', df_shares=df_shares, df=df_hist_sgnls,
+                                                      rsi_float=rsi)
                     send_signal_to_strategy_subscribers(df=df_hist_sgnls)
 
     df_hist_sgnls.to_csv(path_or_buf='csv/historic_signals_rsi.csv', sep=';')

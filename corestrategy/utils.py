@@ -47,36 +47,44 @@ def market_is_closed() -> bool:
 def wait_until_download_time() -> None:
     """Помогает остановить поток до тех пор, пока не настанет время обновить исторические данные"""
 
+    hours_now_in_seconds = _now().hour * 3600
+    minutes_now_in_seconds = _now().minute * 60
+    seconds_now = _now().second
+
     if _now().isoweekday() == 6:
         timeout = hours_7 + hours_48 - (hours_now_in_seconds + minutes_now_in_seconds + seconds_now)
-        #print('Strategies wait until 7am Monday. Timeout in seconds:', timeout, 'Now-time:', _now())
+        print('Strategies wait until 7am Monday. Timeout in seconds:', timeout, 'Now-time:', _now())
         Event().wait(timeout=timeout)
 
     elif _now().isoweekday() == 7:
         timeout = hours_7 + hours_24 - (hours_now_in_seconds + minutes_now_in_seconds + seconds_now)
-        #print('Strategies wait until 7am Monday. Timeout in seconds:', timeout, 'Now-time:', _now())
+        print('Strategies wait until 7am Monday. Timeout in seconds:', timeout, 'Now-time:', _now())
         Event().wait(timeout=timeout)
 
     else:
         timeout = 36000 - (hours_now_in_seconds + minutes_now_in_seconds + seconds_now)
         if timeout < 0:
             timeout = 0
-            #print('Strategies wait until 7am today. Timeout in seconds:', timeout, 'Now-time:', _now())
+            print('Strategies wait until 7am today. Timeout in seconds:', timeout, 'Now-time:', _now())
         Event().wait(timeout=timeout)
 
 
 def wait_until_market_is_open() -> None:
     """Помогает остановить поток до тех пор, пока не откроется биржа"""
+
+    hours_now_in_seconds = _now().hour * 3600
+    minutes_now_in_seconds = _now().minute * 60
+    seconds_now = _now().second
+
     timeout = 36000 - (hours_now_in_seconds + minutes_now_in_seconds + seconds_now)
     if timeout < 0:
         timeout = 0
-    #print('Strategies wait until 10am today. Timeout in seconds:', timeout, 'Now-time:', _now())
+    print('Strategies wait until 10am today. Timeout in seconds:', timeout, 'Now-time:', _now())
     Event().wait(timeout=timeout)
 
 
 def save_signal_to_df(buy_flag: int,
                       sell_flag: int,
-                      x: int or str,
                       last_price: float,
                       figi: str,
                       date: datetime,
@@ -86,35 +94,40 @@ def save_signal_to_df(buy_flag: int,
                       rsi_float: float = None) -> DataFrame:
     """Помогает сохранить множество строк с сигналами в один DataFrame"""
 
-    profit = 0  # profit рассчитывается функцией calc_profit_sma() позже
-    ticker = df_shares.ticker[x]
-    share_name = df_shares.name[x]
-    currency = df_shares.currency[x]
-    if strategy == 'sma':
-        df = concat(objs=[df, (DataFrame(data=[[figi,
-                                                ticker,
-                                                share_name,
-                                                date,
-                                                last_price,
-                                                sell_flag,
-                                                buy_flag,
-                                                strategy,
-                                                profit,
-                                                currency]], columns=columns_sma))],
-                    ignore_index=True, copy=False)
-    if strategy == 'rsi':
-        df = concat(objs=[df, (DataFrame(data=[[figi,
-                                                ticker,
-                                                share_name,
-                                                date,
-                                                last_price,
-                                                rsi_float,
-                                                sell_flag,
-                                                buy_flag,
-                                                'rsi',
-                                                profit,
-                                                currency]], columns=columns_rsi))],
-                    ignore_index=True, copy=False)
+    try:
+        profit = 0  # profit рассчитывается функцией calc_profit_sma() позже
+        ticker = df_shares.loc[df_shares.index == figi].ticker[0]
+        share_name = df_shares.loc[df_shares.index == figi].name[0]
+        currency = df_shares.loc[df_shares.index == figi].currency[0]
+        if strategy == 'sma':
+            df = concat(objs=[df, (DataFrame(data=[[figi,
+                                                    ticker,
+                                                    share_name,
+                                                    date,
+                                                    last_price,
+                                                    sell_flag,
+                                                    buy_flag,
+                                                    strategy,
+                                                    profit,
+                                                    currency]], columns=columns_sma))],
+                        ignore_index=True, copy=False)
+        if strategy == 'rsi':
+            df = concat(objs=[df, (DataFrame(data=[[figi,
+                                                    ticker,
+                                                    share_name,
+                                                    date,
+                                                    last_price,
+                                                    rsi_float,
+                                                    sell_flag,
+                                                    buy_flag,
+                                                    'rsi',
+                                                    profit,
+                                                    currency]], columns=columns_rsi))],
+                        ignore_index=True, copy=False)
+
+    except Exception as e:
+        print(e)
+        print(figi, _now(), 'in def save_signal_to_df', strategy)
 
     return df
 
@@ -134,9 +147,14 @@ def historic_data_is_actual(df: DataFrame) -> bool:
             )
 
 
+def get_n_digits(number):
+    s = str(number)
+    if '.' in s:
+        return abs(s.find('.') - len(s)) - 1
+    else:
+        return 0
+
+
 hours_7 = 25201  # seconds
 hours_24 = 86400  # seconds
 hours_48 = 172800  # seconds
-hours_now_in_seconds = _now().hour * 3600
-minutes_now_in_seconds = _now().minute * 60
-seconds_now = _now().second

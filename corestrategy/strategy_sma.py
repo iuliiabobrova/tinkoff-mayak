@@ -30,52 +30,24 @@ def sma_cross(actual_short_sma: float,
         df_last_signal = df_hist_sgnls[df_hist_sgnls.figi == figi].tail(1)
         if not df_last_signal.empty:
             if df_last_signal.buy_flag.all() != 1:
-                df_hist_sgnls = save_signal_to_df(buy_flag=1,
-                                                  sell_flag=0,
-                                                  x=figi,
-                                                  last_price=last_price,
-                                                  figi=figi,
-                                                  date=_now(),
-                                                  strategy='sma',
-                                                  df=df_hist_sgnls,
-                                                  df_shares=df_shares)
+                df_hist_sgnls = save_signal_to_df(buy_flag=1, sell_flag=0, last_price=last_price, figi=figi,
+                                                  date=_now(), strategy='sma', df_shares=df_shares, df=df_hist_sgnls)
                 send_signal_to_strategy_subscribers(df=df_hist_sgnls)
         else:
-            df_hist_sgnls = save_signal_to_df(buy_flag=1,
-                                              sell_flag=0,
-                                              x=figi,
-                                              last_price=last_price,
-                                              figi=figi,
-                                              date=_now(),
-                                              strategy='sma',
-                                              df=df_hist_sgnls,
-                                              df_shares=df_shares)
+            df_hist_sgnls = save_signal_to_df(buy_flag=1, sell_flag=0, last_price=last_price, figi=figi, date=_now(),
+                                              strategy='sma', df_shares=df_shares, df=df_hist_sgnls)
             send_signal_to_strategy_subscribers(df=df_hist_sgnls)
 
     if crossing_sell:
         df_last_signal = df_hist_sgnls[df_hist_sgnls.figi == figi].tail(1)
         if not df_last_signal.empty:
             if df_last_signal.sell_flag.all() != 1:
-                df_hist_sgnls = save_signal_to_df(buy_flag=0,
-                                                  sell_flag=1,
-                                                  x=figi,
-                                                  last_price=last_price,
-                                                  figi=figi,
-                                                  date=_now(),
-                                                  strategy='sma',
-                                                  df=df_hist_sgnls,
-                                                  df_shares=df_shares)
+                df_hist_sgnls = save_signal_to_df(buy_flag=0, sell_flag=1, last_price=last_price, figi=figi,
+                                                  date=_now(), strategy='sma', df_shares=df_shares, df=df_hist_sgnls)
                 send_signal_to_strategy_subscribers(df=df_hist_sgnls)
         else:
-            df_hist_sgnls = save_signal_to_df(buy_flag=0,
-                                              sell_flag=1,
-                                              x=figi,
-                                              last_price=last_price,
-                                              figi=figi,
-                                              date=_now(),
-                                              strategy='sma',
-                                              df=df_hist_sgnls,
-                                              df_shares=df_shares)
+            df_hist_sgnls = save_signal_to_df(buy_flag=0, sell_flag=1, last_price=last_price, figi=figi, date=_now(),
+                                              strategy='sma', df_shares=df_shares, df=df_hist_sgnls)
             send_signal_to_strategy_subscribers(df=df_hist_sgnls)
 
     return df_hist_sgnls
@@ -96,38 +68,39 @@ def calc_actual_signals_sma(n: int,
             figi = figi[:12]  # считываем figi без лишних элементов
 
             # подготовка DF с short_SMA и long_SMA по figi
-            df_hist_short_sma = df_historic_sma[f'{figi}.short'].dropna()
-            df_hist_long_sma = df_historic_sma[f'{figi}.long'].dropna()
+            if any([xfigi == f'{figi}.short'] for xfigi in df_historic_sma.columns):
+                df_hist_short_sma = df_historic_sma[f'{figi}.short'].dropna()
+                df_hist_long_sma = df_historic_sma[f'{figi}.long'].dropna()
 
-            if (not df_hist_short_sma.empty) and (not df_hist_long_sma.empty):  # проверка на пустой DF
-                hist_short_sma = df_hist_short_sma.loc[df_hist_short_sma.index.max()]  # последняя короткая SMA
-                hist_long_sma = df_hist_long_sma.loc[df_hist_long_sma.index.max()]  # последняя длинная SMA
+                if (not df_hist_short_sma.empty) and (not df_hist_long_sma.empty):  # проверка на пустой DF
+                    hist_short_sma = df_hist_short_sma.loc[df_hist_short_sma.index.max()]  # последняя короткая SMA
+                    hist_long_sma = df_hist_long_sma.loc[df_hist_long_sma.index.max()]  # последняя длинная SMA
 
-                last_price = float(df_all_lasts.loc[figi].last_price)
+                    last_price = float(df_all_lasts.loc[figi].last_price)
 
-                if n == 0:
-                    previous_short_sma = round((
-                            (hist_short_sma * (period_of_short_sma - 1) + last_price) / period_of_short_sma), 3)
-                    previous_long_sma = round((
-                            (hist_long_sma * (period_of_long_sma - 1) + last_price) / period_of_long_sma), 3)
-                    df_previous_sma.loc[figi] = [previous_short_sma, previous_long_sma]
+                    if n == 0:
+                        previous_short_sma = round((
+                                (hist_short_sma * (period_of_short_sma - 1) + last_price) / period_of_short_sma), 3)
+                        previous_long_sma = round((
+                                (hist_long_sma * (period_of_long_sma - 1) + last_price) / period_of_long_sma), 3)
+                        df_previous_sma.loc[figi] = [previous_short_sma, previous_long_sma]
 
-                else:
-                    # подготовка актуальных SMA
-                    actual_short_sma = round((
-                            (hist_short_sma * (period_of_short_sma - 1) + last_price) / period_of_short_sma), 3)
-                    actual_long_sma = round((
-                            (hist_long_sma * (period_of_long_sma - 1) + last_price) / period_of_long_sma), 3)
+                    else:
+                        # подготовка актуальных SMA
+                        actual_short_sma = round((
+                                (hist_short_sma * (period_of_short_sma - 1) + last_price) / period_of_short_sma), 3)
+                        actual_long_sma = round((
+                                (hist_long_sma * (period_of_long_sma - 1) + last_price) / period_of_long_sma), 3)
 
-                    df_hist_signals_sma = sma_cross(actual_short_sma=actual_short_sma,
-                                                    actual_long_sma=actual_long_sma,
-                                                    figi=figi, last_price=last_price,
-                                                    df_shares=df_shares,
-                                                    df_previous_sma=df_previous_sma,
-                                                    df_hist_sgnls=df_hist_signals_sma)
+                        df_hist_signals_sma = sma_cross(actual_short_sma=actual_short_sma,
+                                                        actual_long_sma=actual_long_sma,
+                                                        figi=figi, last_price=last_price,
+                                                        df_shares=df_shares,
+                                                        df_previous_sma=df_previous_sma,
+                                                        df_hist_sgnls=df_hist_signals_sma)
 
-                    # актуальные SMA становятся прошлыми
-                    df_previous_sma.loc[figi] = [actual_short_sma, actual_long_sma]
+                        # актуальные SMA становятся прошлыми
+                        df_previous_sma.loc[figi] = [actual_short_sma, actual_long_sma]
 
     df_hist_signals_sma.to_csv(path_or_buf='csv/historic_signals_sma.csv', sep=';')
 
