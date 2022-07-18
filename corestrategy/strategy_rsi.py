@@ -2,12 +2,11 @@ from pandas import DataFrame
 from numpy import nanpercentile
 
 from corestrategy.settings import *
-from corestrategy.utils import save_signal_to_df, _now
+from corestrategy.utils import save_signal_to_df, _now, get_n_digits
 from corestrategy.deliery_boy import send_signal_to_strategy_subscribers
 
 
 def calc_actual_signals_rsi(df_shares: DataFrame,
-                            figi_list: list,
                             df_hist_sgnls: DataFrame,
                             df_all_lasts: DataFrame,
                             df_close_prices: DataFrame) -> DataFrame:
@@ -18,10 +17,16 @@ def calc_actual_signals_rsi(df_shares: DataFrame,
     upper_rsi = upper_rsi_fix
     lower_rsi = lower_rsi_fix
 
-    for figi in figi_list:
-        if (df_all_lasts.index == figi).any():
+    if not df_all_lasts.empty:
+        for figi in df_all_lasts.index:
+
             df_figi_close_prices = df_close_prices[f'{figi}'].dropna()[-1:-365:-1][::-1]
-            last_price = float(df_all_lasts.loc[figi].last_price)
+            last_price = df_all_lasts.loc[figi].last_price
+            ndigits = get_n_digits(last_price)
+            if last_price // 1 == last_price:
+                last_price = int(last_price)
+            else:
+                last_price = round(float(last_price), ndigits)
             df_figi_close_prices.loc[_now()] = last_price
 
             # расчет по формуле RSI
@@ -39,10 +44,11 @@ def calc_actual_signals_rsi(df_shares: DataFrame,
                 lower_rsi = nanpercentile(rsi, lower_rsi_percentile)  # нижняя граница RSI, выше только 2.5% низких RSI
 
             if rsi[0] >= upper_rsi:  # если истина, записываем в DF сигнал на продажу
-                df_last_signal = df_hist_sgnls[df_hist_sgnls.figi == figi].tail(1)
-                if not df_last_signal.empty:
-                    if (df_last_signal.sell_flag.all() != 1 and df_last_signal.datetime.all() != _now() and
-                            df_shares.loc[df_shares.index == figi].short_enabled_flag[0]):
+                sr_last_signal = df_hist_sgnls[df_hist_sgnls.figi == figi].tail(1).set_index(keys='figi')
+                if not sr_last_signal.empty:
+                    if (sr_last_signal.sell_flag[figi] != 1
+                            and sr_last_signal.datetime[figi].date() != _now().date()
+                            and df_shares.loc[df_shares.index == figi].short_enabled_flag[0]):
                         date = rsi.index[-1]
                         df_hist_sgnls = save_signal_to_df(buy_flag=0, sell_flag=1, last_price=last_price, figi=figi,
                                                           date=date, strategy='rsi', df_shares=df_shares,
@@ -56,9 +62,10 @@ def calc_actual_signals_rsi(df_shares: DataFrame,
                     send_signal_to_strategy_subscribers(df=df_hist_sgnls)
 
             if rsi[0] <= lower_rsi:  # если истина, записываем в DF сигнал на покупку
-                df_last_signal = df_hist_sgnls[df_hist_sgnls.figi == figi].tail(1)
-                if not df_last_signal.empty:
-                    if df_last_signal.buy_flag.all() != 1 and df_last_signal.datetime.all() != _now():
+                sr_last_signal = df_hist_sgnls[df_hist_sgnls.figi == figi].tail(1).set_index(keys='figi')
+                if not sr_last_signal.empty:
+                    if sr_last_signal.buy_flag.all() != 1\
+                            and sr_last_signal.datetime[figi].date() != _now().date():
                         date = rsi.index[-1]
                         df_hist_sgnls = save_signal_to_df(buy_flag=1, sell_flag=0, last_price=last_price, figi=figi,
                                                           date=date, strategy='rsi', df_shares=df_shares,

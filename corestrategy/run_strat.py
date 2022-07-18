@@ -32,7 +32,7 @@ def calc_strategies(figi_list: List,
                                                 df_all_lasts=df_all_lasts,
                                                 df_historic_sma=df_historic_sma, df_previous_sma=df_previous_sma)
 
-    df_historic_signals_rsi = calc_actual_signals_rsi(df_shares=df_shares, figi_list=figi_list,
+    df_historic_signals_rsi = calc_actual_signals_rsi(df_shares=df_shares,
                                                       df_hist_sgnls=df_historic_signals_rsi, df_all_lasts=df_all_lasts,
                                                       df_close_prices=df_close_prices)
 
@@ -56,10 +56,10 @@ def run_strategies() -> None:
 
     while True:
         if market_is_closed():
-            #print(f'Market is closed now. Now-time: {_now()}')
+            print(f'Market is closed now. Now-time: {_now()}')
             wait_until_download_time()
         elif is_time_to_download_data():
-            #print(f'Time to download data. Now-time: {_now()}')
+            print(f'Time to download data. Now-time: {_now()}')
             [figi_list, df_shares, df_close_prices,
              df_historic_signals_sma, df_historic_signals_rsi, df_sma] = update_data()
             wait_until_market_is_open()

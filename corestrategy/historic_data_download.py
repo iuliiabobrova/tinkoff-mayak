@@ -93,7 +93,7 @@ def one_figi_all_candles_request(figi: str,
                                 month=candle.time.month,
                                 day=candle.time.day)
                 # из ответа API парсит цену закрытия
-                close_price = float(candle.close.units + candle.close.nano / 1000000000)
+                close_price = f'{candle.close.units}.{candle.close.nano}'
                 volume = candle.volume  # из ответа API парсит объём торгов
 
                 # если данных нет, записывает новые
@@ -252,16 +252,17 @@ def calc_historic_signals_sma_by_figi(figi: str,
             previous_historic_long_sma = float(sr_long_sma.loc[sr_long_sma.index[index_of_row - 1]])
 
             historic_last_price = float(df_fin_close_prices[figi][index_of_row + 1])
-            historic_date = sr_long_sma.index[index_of_row]
-            df_historic_signals_sma = historic_sma_cross(historic_short_sma=historic_short_sma,
-                                                         historic_long_sma=historic_long_sma,
-                                                         previous_historic_short_sma=previous_historic_short_sma,
-                                                         previous_historic_long_sma=previous_historic_long_sma,
-                                                         historic_last_price=historic_last_price,
-                                                         historic_date=historic_date,
-                                                         figi=figi,
-                                                         df_shares=df_shares,
-                                                         df_historic_signals_sma=df_historic_signals_sma)
+            if historic_last_price != 0:
+                historic_date = sr_long_sma.index[index_of_row]
+                df_historic_signals_sma = historic_sma_cross(historic_short_sma=historic_short_sma,
+                                                             historic_long_sma=historic_long_sma,
+                                                             previous_historic_short_sma=previous_historic_short_sma,
+                                                             previous_historic_long_sma=previous_historic_long_sma,
+                                                             historic_last_price=historic_last_price,
+                                                             historic_date=historic_date,
+                                                             figi=figi,
+                                                             df_shares=df_shares,
+                                                             df_historic_signals_sma=df_historic_signals_sma)
     return df_historic_signals_sma
 
 
@@ -482,7 +483,7 @@ def update_data() -> List:
                       parse_dates=['datetime'])
         if (historic_data_is_actual(df=df) or
                 (to_datetime(getmtime('csv/historic_signals_sma.csv') * 1000000000).date() ==
-                 _now().date())):  # TODO добавить хвост в 1:45
+                 (_now() - timedelta(hours=1, minutes=45)).date())):
             df_historic_signals_sma = df
         else:
             df_historic_signals_sma = calc_historic_signals_sma(df_close_prices=df_close_prices,
@@ -498,7 +499,8 @@ def update_data() -> List:
         df = read_csv(filepath_or_buffer='csv/historic_signals_rsi.csv',
                       sep=';',
                       index_col=0,
-                      parse_dates=['datetime'])
+                      parse_dates=['datetime'],
+                      low_memory=False)
         if historic_data_is_actual(df=df):
             df_historic_signals_rsi = df
         else:

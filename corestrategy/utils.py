@@ -62,10 +62,8 @@ def wait_until_download_time() -> None:
         Event().wait(timeout=timeout)
 
     else:
-        timeout = 36000 - (hours_now_in_seconds + minutes_now_in_seconds + seconds_now)
-        if timeout < 0:
-            timeout = 0
-            print('Strategies wait until 7am today. Timeout in seconds:', timeout, 'Now-time:', _now())
+        timeout = hours_7 - (hours_now_in_seconds + minutes_now_in_seconds + seconds_now)
+        print('Strategies wait until 7am today. Timeout in seconds:', timeout, 'Now-time:', _now())
         Event().wait(timeout=timeout)
 
 
