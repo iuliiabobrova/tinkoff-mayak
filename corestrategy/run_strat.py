@@ -56,10 +56,10 @@ def run_strategies() -> None:
 
     while True:
         if market_is_closed():
-            print(f'Market is closed now. Now-time: {_now()}')
+            #print(f'Market is closed now. Now-time: {_now()}')
             wait_until_download_time()
         elif is_time_to_download_data():
-            print(f'Time to download data. Now-time: {_now()}')
+            #print(f'Time to download data. Now-time: {_now()}')
             [figi_list, df_shares, df_close_prices,
              df_historic_signals_sma, df_historic_signals_rsi, df_sma] = update_data()
             wait_until_market_is_open()
