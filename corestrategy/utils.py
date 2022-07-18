@@ -122,11 +122,9 @@ def save_signal_to_df(buy_flag: int,
                                                     profit,
                                                     currency]], columns=columns_rsi))],
                         ignore_index=True, copy=False)
-
     except Exception as e:
         print(e)
         print(figi, _now(), 'in def save_signal_to_df', strategy)
-
     return df
 
 
@@ -137,7 +135,6 @@ def historic_data_is_actual(df: DataFrame) -> bool:
         df_date = df.index.max().date()
     else:
         df_date = df.datetime.max().date()
-
     return (df_date + td(days=1) >= _now().date() or
             _now().isoweekday() == 7 and df_date + td(days=2) >= _now().date() or
             _now().isoweekday() == 1 and df_date + td(days=3) >= _now().date() or
@@ -151,6 +148,16 @@ def get_n_digits(number):
         return abs(s.find('.') - len(s)) - 1
     else:
         return 0
+
+
+def get_last_price_from_df(figi: str, df: DataFrame) -> float or int:
+    last_price = df.loc[figi].last_price
+    ndigits = get_n_digits(last_price)
+    if float(last_price) // 1 == float(last_price):
+        last_price = int(float(last_price))
+    else:
+        last_price = round(float(last_price), ndigits)
+    return last_price
 
 
 hours_7 = 25201  # seconds

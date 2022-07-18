@@ -2,7 +2,7 @@ from pandas import DataFrame
 from typing import List
 
 from corestrategy.historic_data_download import period_of_short_sma, period_of_long_sma
-from corestrategy.utils import save_signal_to_df, _now, get_n_digits
+from corestrategy.utils import save_signal_to_df, _now, get_last_price_from_df
 from corestrategy.deliery_boy import send_signal_to_strategy_subscribers
 
 
@@ -76,12 +76,7 @@ def calc_actual_signals_sma(n: int,
                     hist_short_sma = df_hist_short_sma.loc[df_hist_short_sma.index.max()]  # последняя короткая SMA
                     hist_long_sma = df_hist_long_sma.loc[df_hist_long_sma.index.max()]  # последняя длинная SMA
 
-                    last_price = df_all_lasts.loc[figi].last_price
-                    ndigits = get_n_digits(last_price)
-                    if last_price // 1 == last_price:
-                        last_price = int(last_price)
-                    else:
-                        last_price = round(float(last_price), ndigits)
+                    last_price = get_last_price_from_df(figi=figi, df=df_all_lasts)
 
                     if n == 0:
                         previous_short_sma = round((

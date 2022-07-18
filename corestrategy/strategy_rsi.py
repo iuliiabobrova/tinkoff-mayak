@@ -2,7 +2,7 @@ from pandas import DataFrame
 from numpy import nanpercentile
 
 from corestrategy.settings import *
-from corestrategy.utils import save_signal_to_df, _now, get_n_digits
+from corestrategy.utils import save_signal_to_df, _now, get_last_price_from_df
 from corestrategy.deliery_boy import send_signal_to_strategy_subscribers
 
 
@@ -21,12 +21,7 @@ def calc_actual_signals_rsi(df_shares: DataFrame,
         for figi in df_all_lasts.index:
 
             df_figi_close_prices = df_close_prices[f'{figi}'].dropna()[-1:-365:-1][::-1]
-            last_price = df_all_lasts.loc[figi].last_price
-            ndigits = get_n_digits(last_price)
-            if last_price // 1 == last_price:
-                last_price = int(last_price)
-            else:
-                last_price = round(float(last_price), ndigits)
+            last_price = get_last_price_from_df(figi=figi, df=df_all_lasts)
             df_figi_close_prices.loc[_now()] = last_price
 
             # расчет по формуле RSI
