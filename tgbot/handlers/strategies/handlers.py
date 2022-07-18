@@ -33,6 +33,9 @@ def sma_connect(update: Update, context: CallbackContext) -> None:
             query.message.reply_html(
                 text=f"{signal}", reply_markup=make_keyboard_for_signal(u.user_id, signal))
 
+        query.message.reply_html(
+            text="Внимание: сигналы по cross-SMA приходят редко. Для получения большего количества сигналов рекомендуем подключить стратегию RSI тут -> /strategies")
+
     else:
         query.edit_message_text(text=static_text.already_subscribed)
 
