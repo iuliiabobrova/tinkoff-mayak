@@ -121,8 +121,8 @@ def update_2_csv_with_historic_candles(df_fin_close_prices: DataFrame,
                                        figi_list: List) -> List[DataFrame]:
     """Позволяет создать два CSV-файла с historic_close_prices и historic_volumes"""
 
-    for i in tqdm(range(len(figi_list)), desc='Downloading historic candles'):
-        figi = figi_list[i]
+    print('⏩Downloading historic candles')
+    for figi in figi_list:
         last_date = last_data_parser(figi, df_fin_close_prices)
         days = (_now() - last_date).days
         # выше подготовка входных данных для функций
