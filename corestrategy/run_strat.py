@@ -64,6 +64,7 @@ def run_strategies() -> None:
              df_historic_signals_sma, df_historic_signals_rsi, df_sma] = update_data()
             wait_until_market_is_open()
         while not market_is_closed():
+            #print('calc strategies', _now())
             [df_historic_signals_rsi,
              df_historic_signals_sma,
              df_previous_sma,

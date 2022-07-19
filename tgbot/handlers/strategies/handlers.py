@@ -3,7 +3,6 @@ from telegram import ParseMode, Update
 from telegram.ext import CallbackContext
 from time import sleep
 
-from tgbot.handlers.turn_off_signals.static_text import sma_off_signals, rsi_off_signals, no_subscriptions_to_strategy
 from tgbot.models import User, Command
 from tgbot.handlers.strategies import static_text
 from tgbot.handlers.strategies.utils import get_last_signals
@@ -23,7 +22,7 @@ def sma_connect(update: Update, context: CallbackContext) -> None:
         query.edit_message_text(
             text=static_text.sma_is_chosen, parse_mode=ParseMode.HTML, disable_web_page_preview=True)
 
-        sleep(7)
+        sleep(4)
 
         signals_df = read_csv('csv/historic_signals_sma.csv',
                               sep=';', index_col=0, parse_dates=['datetime'], low_memory=False)
@@ -53,7 +52,7 @@ def rsi_connect(update: Update, context: CallbackContext) -> None:
         query.edit_message_text(
             text=static_text.rsi_is_chosen, parse_mode=ParseMode.HTML, disable_web_page_preview=True)
 
-        sleep(7)
+        sleep(4)
 
         signals_df = read_csv('csv/historic_signals_rsi.csv',
                               sep=';', index_col=0, parse_dates=['datetime'], low_memory=False)

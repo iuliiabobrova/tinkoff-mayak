@@ -31,17 +31,24 @@ def check_all_files_existing() -> bool:
 
 def is_time_to_download_data() -> bool:
     """Проверяет, подходит ли время для объемной загрузки исторических данных"""
-    return time(hour=7) < _now().time() < time(hour=10)
+    value = time(hour=7) < _now().time() < time(hour=10)
+    # print(value)  # log can affect memory
+    return value
 
 
 def market_is_closed() -> bool:
     """Проверяет, закрыта ли биржа"""
     if _now().isoweekday() == 6:
-        return time(hour=1, minute=45) < _now().time() < time(hour=23, minute=59, second=59)
+        value = time(hour=1, minute=45) < _now().time() < time(hour=23, minute=59, second=59)
+        #print('def market_is_closed:', value)  # log can affect memory
+        return value
     elif _now().isoweekday() == 7:
+        #print('def market_is_closed Now:', _now())  # log can affect memory
         return True
     else:
-        return time(hour=1, minute=45) < _now().time() < time(hour=10)
+        value = time(hour=1, minute=45) < _now().time() < time(hour=10)
+        #print('def market_is_closed', value, _now())  # log can affect memory
+        return value
 
 
 def wait_until_download_time() -> None:
@@ -92,6 +99,7 @@ def save_signal_to_df(buy_flag: int,
                       rsi_float: float = None) -> DataFrame:
     """Помогает сохранить множество строк с сигналами в один DataFrame"""
 
+    #print('saving NEW signal', _now())  # be careful, this log can affect memory-usage
     try:
         profit = 0  # profit рассчитывается функцией calc_profit_sma() позже
         ticker = df_shares.loc[df_shares.index == figi].ticker[0]
@@ -135,10 +143,10 @@ def historic_data_is_actual(df: DataFrame) -> bool:
         df_date = df.index.max().date()
     else:
         df_date = df.datetime.max().date()
-    return (df_date + td(days=1) >= _now().date() or
-            _now().isoweekday() == 7 and df_date + td(days=2) >= _now().date() or
-            _now().isoweekday() == 1 and df_date + td(days=3) >= _now().date() or
-            _now().isoweekday() == 2 and df_date + td(days=4) >= _now().date() and time() < _now().time() < time(hour=7)
+    return (df_date + td(days=1) >= _now().date() + td(hours=1, minutes=45) or
+            _now().isoweekday() == 7 and df_date + td(days=2) >= _now().date() + td(hours=1, minutes=45) or
+            _now().isoweekday() == 1 and df_date + td(days=3) >= _now().date() + td(hours=1, minutes=45) or
+            _now().isoweekday() == 2 and df_date + td(days=4) >= _now().date() + td(hours=1, minutes=45) and time() < _now().time() < time(hour=7)
             )
 
 
@@ -150,14 +158,13 @@ def get_n_digits(number):
         return 0
 
 
-def get_last_price_from_df(figi: str, df: DataFrame) -> float or int:
-    last_price = df.loc[figi].last_price
-    ndigits = get_n_digits(last_price)
-    if float(last_price) // 1 == float(last_price):
-        last_price = int(float(last_price))
+def convert_stringprice_into_int_or_float(price: str) -> float or int:
+    ndigits = get_n_digits(price)
+    if float(price) // 1 == float(price):
+        price = int(float(price))
     else:
-        last_price = round(float(last_price), ndigits)
-    return last_price
+        price = round(float(price), ndigits)
+    return price
 
 
 hours_7 = 25201  # seconds

@@ -10,7 +10,6 @@ from dtb.celery import app
 from tgbot.handlers.strategies.utils import get_last_signals
 from tgbot.handlers.strategies.keyboards import make_keyboard_for_signal
 from tgbot.models import User
-from corestrategy.utils import _now
 
 
 def _send_message(
@@ -56,5 +55,3 @@ def send_signal_to_strategy_subscribers(df: DataFrame) -> None:
                           disable_web_page_preview=True,
                           reply_markup=make_keyboard_for_signal(user.user_id, signal))
             sleep(0.4)
-
-    #print(f"Signals sent! Now-time: {_now()}")

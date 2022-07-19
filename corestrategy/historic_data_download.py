@@ -16,7 +16,7 @@ from tinkoff.invest import Client, CandleInterval
 
 from dtb.settings import INVEST_TOKEN
 from corestrategy.settings import *
-from corestrategy.utils import save_signal_to_df, historic_data_is_actual, _now
+from corestrategy.utils import save_signal_to_df, historic_data_is_actual, _now, convert_stringprice_into_int_or_float
 
 
 def get_shares_list_to_csv() -> List:
@@ -94,6 +94,7 @@ def one_figi_all_candles_request(figi: str,
                                 day=candle.time.day)
                 # из ответа API парсит цену закрытия
                 close_price = f'{candle.close.units}.{candle.close.nano}'
+                close_price = convert_stringprice_into_int_or_float(price=close_price)
                 volume = candle.volume  # из ответа API парсит объём торгов
 
                 # если данных нет, записывает новые
@@ -504,7 +505,6 @@ def update_data() -> List:
         if historic_data_is_actual(df=df):
             df_historic_signals_rsi = df
         else:
-            print('RSI historic signals are not actual')
             df_historic_signals_rsi = save_historic_signals_rsi(df_close_prices=df_close_prices,
                                                                 df_shares=df_shares)
     else:
