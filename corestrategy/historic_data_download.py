@@ -170,7 +170,7 @@ def calc_sma(df_close_prices: DataFrame,
     df_sma_final = DataFrame()  # пустой DF
     df_sma2 = DataFrame()  # пустой DF
 
-    print('Start calculating SMA-float')
+    print('⏩Start calculating SMA-float')
     for figi in figi_list:
         try:
             df = df_close_prices[figi].dropna()  # получаем для каждого figi его Series с close_prices

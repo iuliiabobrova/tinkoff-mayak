@@ -55,7 +55,7 @@ def run_strategies() -> None:
     df_previous_sma = DataFrame(index=figi_list, columns=['previous_short_sma', 'previous_long_sma'])
 
     while True:
-        if market_is_closed():
+        if market_is_closed() and not is_time_to_download_data():
             print(f'Market is closed now. Now-time: {_now()}')
             wait_until_download_time()
         elif is_time_to_download_data():
