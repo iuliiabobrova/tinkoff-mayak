@@ -162,7 +162,9 @@ def calc_std(df_close_prices: DataFrame,
 
 
 def calc_sma(df_close_prices: DataFrame,
-             figi_list: List) -> DataFrame:
+             figi_list: List,
+             period_of_short_sma: int,
+             period_of_long_sma: int) -> DataFrame:
     """Считает SMA"""
 
     df_sma_final = DataFrame()  # пустой DF
@@ -479,18 +481,12 @@ def update_data() -> List:
                                                                            df_fin_volumes=df_volumes,
                                                                            figi_list=figi_list)
 
-    # проверка sma на актуальность
-    if exists(path='csv/sma.csv'):
-        df = read_csv(filepath_or_buffer='csv/sma.csv',
-                      sep=';',
-                      index_col=0,
-                      parse_dates=[0])
-        if historic_data_is_actual(df=df):
-            df_sma = df
-        else:
-            df_sma = calc_sma(df_close_prices=df_close_prices, figi_list=figi_list)
-    else:
-        df_sma = calc_sma(df_close_prices=df_close_prices, figi_list=figi_list)
+    df_sma = get_or_calc_sma(
+        df_close_prices=df_close_prices,
+        figi_list=figi_list,
+        period_of_short_sma=50,
+        period_of_long_sma=200
+    )
 
     # проверка sma-signals на актуальность
     if exists(path='csv/historic_signals_sma.csv'):
@@ -535,3 +531,29 @@ def update_data() -> List:
     print('✅All data is actual')
 
     return [figi_list, df_shares, df_close_prices, df_historic_signals_sma, df_historic_signals_rsi, df_sma]
+
+
+def get_or_calc_sma(df_close_prices: DataFrame,
+                    figi_list: List,
+                    period_of_short_sma: int,
+                    period_of_long_sma: int) -> DataFrame:
+    file_path = 'csv/sma_%i_%i.csv' % (period_of_short_sma, period_of_long_sma)
+    # проверка sma на актуальность
+    if exists(path=file_path):
+        df = read_csv(filepath_or_buffer=file_path,
+                      sep=';',
+                      index_col=0,
+                      parse_dates=[0])
+        if historic_data_is_actual(df=df):
+            df_sma = df
+        else:
+            df_sma = calc_sma(
+                df_close_prices=df_close_prices,
+                figi_list=figi_list,
+                period_of_short_sma=period_of_short_sma,
+                period_of_long_sma=period_of_long_sma
+            )
+    else:
+        df_sma = calc_sma(df_close_prices=df_close_prices, figi_list=figi_list)
+
+    return df_sma
