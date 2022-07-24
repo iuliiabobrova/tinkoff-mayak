@@ -9,6 +9,7 @@ from telegram import Update
 from telegram.ext import CallbackContext
 
 from dtb.settings import DEBUG
+from tgbot.handlers.strategies.static_text import sma_is_chosen, rsi_is_chosen
 from tgbot.handlers.utils.info import extract_user_data_from_update
 from utils.models import CreateUpdateTracker, nb, CreateTracker, GetOrNoneManager
 
@@ -23,9 +24,9 @@ class Strategy(CreateTracker):
     strategy_name: str
 
     _all_cases = {
-        'sma_50_200': 'SMA 50/200',
-        'sma_30_90': 'SMA 30/90',
-        'sma_20_60': 'SMA 20/60',
+        'sma_50_200': 'Скользящее среднее (cross-SMA 50-200)',
+        'sma_30_90': 'Скользящее среднее (cross-SMA 30-90)',
+        'sma_20_60': 'Скользящее среднее (cross-SMA 20-60)',
         'rsi': 'RSI'
     }
 
@@ -56,6 +57,12 @@ class Strategy(CreateTracker):
     @classmethod
     def name(cls, strategy_id: str) -> str:
         return cls._all_cases[strategy_id]
+
+    def description(self) -> str:
+        if self.strategy_id.startswith('sma'):
+            return sma_is_chosen
+        elif self.strategy_id.startswith('rsi'):
+            return rsi_is_chosen
 
 
 class Subscription(CreateTracker):

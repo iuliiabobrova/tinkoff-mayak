@@ -3,8 +3,7 @@ from telegram import ParseMode, Update
 from telegram.ext import CallbackContext
 from time import sleep
 
-from tgbot.handlers.turn_off_signals.static_text import sma_off_signals, rsi_off_signals, no_subscriptions_to_strategy
-from tgbot.models import User, Command
+from tgbot.models import User, Command, Strategy
 from tgbot.handlers.strategies import static_text
 from tgbot.handlers.strategies.utils import get_last_signals
 from tgbot.handlers.strategies.keyboards import make_keyboard_for_signal
@@ -12,21 +11,21 @@ from tgbot.handlers.strategies.keyboards import make_keyboard_for_signal
 
 def strategy_connect(update: Update, context: CallbackContext) -> None:
     query = update.callback_query
-    strategy_id = query.data
+    strategy = Strategy(strategy_id=query.data)
 
     u = User.get_user(update, context)
-    subscribed = u.subscribe_user_to_strategy(strategy_id=strategy_id)
+    subscribed = u.subscribe_user_to_strategy(strategy_id=strategy.strategy_id)
 
-    Command.record(command_name=strategy_id, user_id=u.user_id, username=u.username)
+    Command.record(command_name=strategy.strategy_id, user_id=u.user_id, username=u.username)
     query.answer()
 
     if subscribed:
         query.edit_message_text(
-            text=static_text.sma_is_chosen, parse_mode=ParseMode.HTML, disable_web_page_preview=True)
+            text=strategy.description(), parse_mode=ParseMode.HTML, disable_web_page_preview=True)
 
-        sleep(7)
+        sleep(4)
 
-        signals_df = read_csv('csv/historic_signals_%s.csv' % strategy_id,
+        signals_df = read_csv('csv/historic_signals_%s.csv' % strategy.strategy_id,
                               sep=';', index_col=0, parse_dates=['datetime'], low_memory=False)
         signals = get_last_signals(df=signals_df, amount=3)
 
