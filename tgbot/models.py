@@ -18,6 +18,46 @@ class AdminUserManager(Manager):
         return super().get_queryset().filter(is_admin=True)
 
 
+class Strategy(CreateTracker):
+    strategy_id: str
+    strategy_name: str
+
+    _all_cases = {
+        'sma_50_200': 'SMA 50/200',
+        'sma_30_90': 'SMA 30/90',
+        'sma_20_60': 'SMA 20/60',
+        'rsi': 'RSI'
+    }
+
+    def __init__(self, strategy_id):
+        self.strategy_id = strategy_id
+        self.strategy_name = self._all_cases[strategy_id]
+
+    @classmethod
+    def sma_50_200(cls) -> Strategy:
+        return Strategy(strategy_id='sma_50_200')
+
+    @classmethod
+    def sma_30_90(cls) -> Strategy:
+        return Strategy(strategy_id='sma_30_90')
+
+    @classmethod
+    def sma_20_60(cls) -> Strategy:
+        return Strategy(strategy_id='sma_20_60')
+
+    @classmethod
+    def rsi(cls) -> Strategy:
+        return Strategy(strategy_id='rsi')
+
+    @classmethod
+    def all(cls) -> List:
+        return [cls.sma_50_200(), cls.sma_30_90(), cls.sma_20_60(), cls.rsi()]
+
+    @classmethod
+    def name(cls, strategy_id: str) -> str:
+        return cls._all_cases[strategy_id]
+
+
 class Subscription(CreateTracker):
     id = models.BigAutoField(primary_key=True)
     strategy_id = models.CharField(max_length=32, **nb)

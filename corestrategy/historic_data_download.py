@@ -163,7 +163,8 @@ def calc_std(df_close_prices: DataFrame,
 
 def calc_sma(df_close_prices: DataFrame,
              figi_list: List,
-             sma_periods: SMACrossPeriods) -> DataFrame:
+             sma_periods: SMACrossPeriods,
+             csv_path: str) -> DataFrame:
     """Считает SMA"""
 
     df_sma_final = DataFrame()  # пустой DF
@@ -191,9 +192,8 @@ def calc_sma(df_close_prices: DataFrame,
         # сохраняем итоговый DF в переменную, чтобы можно было добавить данные следующим циклом
         df_sma2 = df_sma_final
 
-    file_path = 'csv/sma_%i_%i.csv' % (sma_periods.short, sma_periods.long)
     df_sma_final.sort_index()
-    df_sma_final.to_csv(path_or_buf=file_path, sep=';')
+    df_sma_final.to_csv(path_or_buf=csv_path, sep=';')
     print('✅Calc of SMA done')
 
     return df_sma_final
@@ -566,13 +566,15 @@ def get_or_calc_sma(df_close_prices: DataFrame,
             df_sma = calc_sma(
                 df_close_prices=df_close_prices,
                 figi_list=figi_list,
-                sma_periods=sma_periods
+                sma_periods=sma_periods,
+                csv_path=file_path
             )
     else:
         df_sma = calc_sma(
             df_close_prices=df_close_prices,
             figi_list=figi_list,
-            sma_periods=sma_periods
+            sma_periods=sma_periods,
+            csv_path=file_path
         )
 
     return df_sma

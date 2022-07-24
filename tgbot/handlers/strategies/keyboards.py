@@ -1,18 +1,10 @@
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
-
-from tgbot.handlers.strategies.manage_data import SMA_CONNECT_BUTTON, RSI_CONNECT_BUTTON
-from tgbot.handlers.strategies.static_text import sma_button_text, rsi_button_text
+from tgbot.models import Strategy
 
 
 def make_keyboard_for_strategies_connect() -> InlineKeyboardMarkup:
-    buttons = [
-        [InlineKeyboardButton(sma_button_text,
-                              callback_data=f'{SMA_CONNECT_BUTTON}')],
-        [InlineKeyboardButton(rsi_button_text,
-                              callback_data=f'{RSI_CONNECT_BUTTON}')]
-    ]
-
-    return InlineKeyboardMarkup(buttons)
+    buttons = map(lambda s: [InlineKeyboardButton(s.strategy_name, callback_data=f'{s.strategy_id}')], Strategy.all())
+    return InlineKeyboardMarkup(list(buttons))
 
 
 def make_keyboard_for_signal(user_id, signal):

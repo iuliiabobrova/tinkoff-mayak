@@ -134,6 +134,9 @@ def calc_actual_signals_sma(n: int,
                     # актуальные SMA становятся прошлыми
                     df_previous_sma.loc[figi] = [actual_short_sma, actual_long_sma]
 
-    df_hist_signals_sma.to_csv(path_or_buf='csv/historic_signals_sma.csv', sep=';')
+    df_hist_signals_sma.to_csv(
+        path_or_buf='csv/historic_signals_sma_%i_%i.csv' % (sma_periods.short, sma_periods.long),
+        sep=';'
+    )
 
     return [df_hist_signals_sma, df_previous_sma]

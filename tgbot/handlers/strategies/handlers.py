@@ -10,13 +10,18 @@ from tgbot.handlers.strategies.utils import get_last_signals
 from tgbot.handlers.strategies.keyboards import make_keyboard_for_signal
 
 
-def sma_connect(update: Update, context: CallbackContext) -> None:
+def strategy_connect(update: Update, context: CallbackContext) -> None:
+    query = update.callback_query
+    strategy_id = query.data
+    components = strategy_id.split(sep='_')
+    short_sma, long_sma = components[1], components[2]
+
     u = User.get_user(update, context)
-    subscribed = u.subscribe_user_to_strategy(strategy_id="sma")
-    Command.record(command_name="sma",
+    subscribed = u.subscribe_user_to_strategy(strategy_id=strategy_id)
+
+    Command.record(command_name=query.data,
                    user_id=u.user_id, username=u.username)
 
-    query = update.callback_query
     query.answer()
 
     if subscribed:
@@ -25,7 +30,7 @@ def sma_connect(update: Update, context: CallbackContext) -> None:
 
         sleep(7)
 
-        signals_df = read_csv('csv/historic_signals_sma.csv',
+        signals_df = read_csv('csv/historic_signals_sma_%i_%i.csv' % (short_sma, long_sma),
                               sep=';', index_col=0, parse_dates=['datetime'], low_memory=False)
         signals = get_last_signals(df=signals_df, amount=3)
 
