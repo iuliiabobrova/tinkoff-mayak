@@ -1,8 +1,19 @@
 # в этом файле находятся настройки стратегий
 """SMA"""
 std_period = 20  # дней (обязательно меньше sma_short_period)
-period_of_short_sma = 50  # (дней) (обязательно меньше sma_long_period) короткая скользящая средняя
-period_of_long_sma = 200  # (дней) длинная скользящая средняя
+
+class SMACrossPeriods:
+    short: int
+    long: int
+
+    def __init__(self, short, long):
+        self.short = short
+        self.long = long
+
+
+sma_cross_periods_50_200 = SMACrossPeriods(50, 200)
+sma_cross_periods_30_90 = SMACrossPeriods(30, 90)
+sma_cross_periods_20_60 = SMACrossPeriods(20, 60)
 
 """RSI"""
 period_of_ema = 13  # (дней) значение для расчета экспоненциальной скользящей средней

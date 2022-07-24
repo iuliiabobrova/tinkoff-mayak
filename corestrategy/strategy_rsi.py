@@ -3,7 +3,7 @@ from numpy import nanpercentile
 
 from corestrategy.settings import *
 from corestrategy.utils import save_signal_to_df, _now
-from corestrategy.deliery_boy import send_signal_to_strategy_subscribers
+from corestrategy.delivery_boy import send_signal_to_strategy_subscribers
 
 
 def calc_actual_signals_rsi(df_shares: DataFrame,

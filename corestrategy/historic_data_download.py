@@ -482,15 +482,49 @@ def update_data() -> List:
                                                                            df_fin_volumes=df_volumes,
                                                                            figi_list=figi_list)
 
-    df_sma = get_or_calc_sma(df_close_prices=df_close_prices, figi_list=figi_list, sma_periods=sma_cross_periods_50_200)
-
-    df_historic_signals_sma = get_or_calc_sma_historic_signals(
+    df_sma_50_200 = get_or_calc_sma(
         df_close_prices=df_close_prices,
-        df_sma=df_sma,
+        figi_list=figi_list,
+        sma_periods=sma_cross_periods_50_200
+    )
+    df_sma_30_90 = get_or_calc_sma(
+        df_close_prices=df_close_prices,
+        figi_list=figi_list,
+        sma_periods=sma_cross_periods_30_90
+    )
+    df_sma_20_60 = get_or_calc_sma(
+        df_close_prices=df_close_prices,
+        figi_list=figi_list,
+        sma_periods=sma_cross_periods_20_60
+    )
+    df_sma_list = [df_sma_50_200, df_sma_30_90, df_sma_20_60]
+
+    df_historic_signals_sma_50_200 = get_or_calc_sma_historic_signals(
+        df_close_prices=df_close_prices,
+        df_sma=df_sma_50_200,
         figi_list=figi_list,
         df_shares=df_shares,
         sma_periods=sma_cross_periods_50_200
     )
+    df_historic_signals_sma_30_90 = get_or_calc_sma_historic_signals(
+        df_close_prices=df_close_prices,
+        df_sma=df_sma_30_90,
+        figi_list=figi_list,
+        df_shares=df_shares,
+        sma_periods=sma_cross_periods_30_90
+    )
+    df_historic_signals_sma_20_60 = get_or_calc_sma_historic_signals(
+        df_close_prices=df_close_prices,
+        df_sma=df_sma_20_60,
+        figi_list=figi_list,
+        df_shares=df_shares,
+        sma_periods=sma_cross_periods_20_60
+    )
+    df_historic_signals_sma_list = [
+        df_historic_signals_sma_50_200,
+        df_historic_signals_sma_30_90,
+        df_historic_signals_sma_20_60
+    ]
 
     # проверка rsi-signals на актуальность
     if exists(path='csv/historic_signals_rsi.csv'):
@@ -513,7 +547,7 @@ def update_data() -> List:
     # calc_profit(df_historic_signals_rsi=df_historic_signals_rsi)  TODO RSI-profit
     print('✅All data is actual')
 
-    return [figi_list, df_shares, df_close_prices, df_historic_signals_sma, df_historic_signals_rsi, df_sma]
+    return [figi_list, df_shares, df_close_prices, df_historic_signals_sma_list, df_historic_signals_rsi, df_sma_list]
 
 
 # проверка sma на актуальность
