@@ -27,7 +27,7 @@ def command_off(update: Update, context: CallbackContext) -> None:
 
 def strategy_disconnect(update: Update, context: CallbackContext) -> None:
     query = update.callback_query
-    strategy = Strategy(strategy_id=query.data)
+    strategy = Strategy(strategy_id=query.data.strip('_disconnect'))
 
     u = User.get_user(update, context)
     unsubscribed = u.unsubscribe_user_from_strategy(strategy_id=strategy.strategy_id)
