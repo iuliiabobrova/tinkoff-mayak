@@ -11,7 +11,7 @@ from tgbot.handlers.strategies.keyboards import make_keyboard_for_signal
 
 def strategy_connect(update: Update, context: CallbackContext) -> None:
     query = update.callback_query
-    strategy = Strategy(strategy_id=query.data.strip('_connect'))
+    strategy = Strategy(strategy_id=query.data.replace('_connect', ''))
 
     u = User.get_user(update, context)
     subscribed = u.subscribe_user_to_strategy(strategy_id=strategy.strategy_id)

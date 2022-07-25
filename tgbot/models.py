@@ -20,9 +20,6 @@ class AdminUserManager(Manager):
 
 
 class Strategy(CreateTracker):
-    strategy_id: str
-    strategy_name: str
-
     _all_cases = {
         'sma_50_200': 'Скользящее среднее (cross-SMA 50-200)',
         'sma_30_90': 'Скользящее среднее (cross-SMA 30-90)',
@@ -30,9 +27,12 @@ class Strategy(CreateTracker):
         'rsi': 'RSI'
     }
 
-    def __init__(self, strategy_id):
+    def __init__(self, strategy_id: str, strategy_name: Optional[str] = None):
         self.strategy_id = strategy_id
-        self.strategy_name = self._all_cases[strategy_id]
+        if strategy_name is None:
+            self.strategy_name = Strategy._all_cases[strategy_id]
+        else:
+            self.strategy_name = strategy_name
 
     @classmethod
     def sma_50_200(cls) -> Strategy:

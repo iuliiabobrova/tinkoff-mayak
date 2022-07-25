@@ -3,7 +3,10 @@ from tgbot.models import Strategy
 
 
 def make_keyboard_for_strategies_connect() -> InlineKeyboardMarkup:
-    buttons = map(lambda s: [InlineKeyboardButton(s.strategy_name, callback_data=f'{s.strategy_id}')], Strategy.all())
+    buttons = map(
+        lambda s: [InlineKeyboardButton(s.strategy_name, callback_data=f"{s.strategy_id}_connect")],
+        Strategy.all()
+    )
     return InlineKeyboardMarkup(list(buttons))
 
 

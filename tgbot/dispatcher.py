@@ -99,12 +99,12 @@ def setup_dispatcher(dp):
     strategy_ids = list(map(lambda s: s.strategy_id, Strategy.all()))
     for identifier in strategy_ids:
         dp.add_handler(CallbackQueryHandler(
-            strategies_handlers.strategy_connect, pattern=f"{identifier}_connect"))
+            strategies_handlers.strategy_connect, pattern=f"^{identifier}_connect$"))
 
     # handle strategy disconnect
     for identifier in strategy_ids:
         dp.add_handler(CallbackQueryHandler(
-            turn_off_signals_handlers.strategy_disconnect, pattern=f"{identifier}_disconnect"))
+            turn_off_signals_handlers.strategy_disconnect, pattern=f"^{identifier}_disconnect$"))
     dp.add_handler(CallbackQueryHandler(
         turn_off_signals_handlers.all_disconnect, pattern=f"^{ALL_DISCONNECT_BUTTON}$"))
 

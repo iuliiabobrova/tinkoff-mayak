@@ -27,7 +27,7 @@ def command_off(update: Update, context: CallbackContext) -> None:
 
 def strategy_disconnect(update: Update, context: CallbackContext) -> None:
     query = update.callback_query
-    strategy = Strategy(strategy_id=query.data.strip('_disconnect'))
+    strategy = Strategy(strategy_id=query.data.replace('_disconnect', ''))
 
     u = User.get_user(update, context)
     unsubscribed = u.unsubscribe_user_from_strategy(strategy_id=strategy.strategy_id)
@@ -35,7 +35,8 @@ def strategy_disconnect(update: Update, context: CallbackContext) -> None:
     query.answer()
 
     if unsubscribed:
-        query.edit_message_text(text=strategy_off_signals(strategy.strategy_name))
+        message_text = strategy_off_signals(strategy.strategy_name)
+        query.edit_message_text(text=message_text)
     else:
         query.edit_message_text(text=no_subscriptions_to_strategy)
 
