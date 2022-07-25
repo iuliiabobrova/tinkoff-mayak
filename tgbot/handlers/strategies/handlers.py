@@ -25,7 +25,7 @@ def strategy_connect(update: Update, context: CallbackContext) -> None:
 
         sleep(4)
 
-        signals_df = read_csv('csv/historic_signals_%s.csv' % strategy.strategy_id,
+        signals_df = read_csv(f'csv/historic_signals_{strategy.strategy_id}.csv',
                               sep=';', index_col=0, parse_dates=['datetime'], low_memory=False)
         signals = get_last_signals(df=signals_df, amount=3)
 

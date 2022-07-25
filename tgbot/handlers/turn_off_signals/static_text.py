@@ -10,4 +10,4 @@ no_signals = "Сейчас сигналы выключены.\n" \
 
 
 def strategy_off_signals(name: str) -> str:
-    return df_texts.off_signals[2] % (name[0].lower() + name[1:])
+    return df_texts.off_signals[2] % name

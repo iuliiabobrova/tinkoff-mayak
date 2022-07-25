@@ -178,9 +178,9 @@ def calc_sma(df_close_prices: DataFrame,
             df = df_close_prices[figi].dropna()  # получаем для каждого figi его Series с close_prices
 
             # скользящие средние за короткий период
-            df_sma_short = df.rolling(period_of_short_sma - 1).mean().dropna().round(3)
+            df_sma_short = df.rolling(sma_periods.short - 1).mean().dropna().round(3)
             # скользящие средние за длинный период
-            df_sma_long = df.rolling(period_of_long_sma - 1).mean().dropna().round(3)
+            df_sma_long = df.rolling(sma_periods.long - 1).mean().dropna().round(3)
 
             # объединяем короткие и длинные скользящие средние
             df_ma = concat([df_sma_short, df_sma_long], axis=1, copy=False)
@@ -242,6 +242,9 @@ def calc_historic_signals_sma_by_figi(figi: str,
                                       df_historic_signals_sma: DataFrame) -> DataFrame:
     """Подготавливает данные о [historic_last_price, historic_SMA, historic_date] для функции historic_sma_cross.
     По одному figi"""
+
+    if amount_of_rows >= 20:
+        amount_of_rows = 20
 
     for index_of_row in range(-1, -amount_of_rows, -1):
 
@@ -306,8 +309,11 @@ def calc_one_figi_signals_rsi(rsi: DataFrame,
                               df_close_prices: DataFrame,
                               df_shares: DataFrame) -> DataFrame:
     df = DataFrame(columns=columns_rsi)
+    count = len(rsi[figi])
+    if count >= 20:
+        count = 20
 
-    for y in range(len(rsi[figi])):
+    for y in range(count):
         rsi_float = rsi[figi][y]
         historic_date_rsi = rsi.index[y]
         historic_last_price_rsi = df_close_prices[figi][historic_date_rsi]
@@ -538,7 +544,7 @@ def update_data() -> List:
 def get_or_calc_sma(df_close_prices: DataFrame,
                     figi_list: List,
                     sma_periods: SMACrossPeriods) -> DataFrame:
-    file_path = 'csv/sma_%i_%i.csv' % (sma_periods.short, sma_periods.long)
+    file_path = f'csv/sma_{sma_periods.short}_{sma_periods.long}.csv'
     if exists(path=file_path):
         df = read_csv(filepath_or_buffer=file_path,
                       sep=';',
@@ -570,7 +576,7 @@ def get_or_calc_sma_historic_signals(df_close_prices: DataFrame,
                                      figi_list: List,
                                      df_shares: DataFrame,
                                      sma_periods: SMACrossPeriods) -> DataFrame:
-    file_path = 'csv/historic_signals_sma_%i_%i.csv' % (sma_periods.short, sma_periods.long)
+    file_path = f'csv/historic_signals_sma_{sma_periods.short}_{sma_periods.long}.csv'
     if exists(path=file_path):
         df = read_csv(filepath_or_buffer=file_path,
                       sep=';',

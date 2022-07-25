@@ -16,7 +16,7 @@ def sma_cross(actual_short_sma: float,
               sma_periods: SMACrossPeriods) -> DataFrame:
     """Функция считает, пересекаются ли скользящие средние, а далее формирует и сохраняет сигнал"""
 
-    strategy_name = 'sma_%i_%i' % (sma_periods.short, sma_periods.long)
+    strategy_name = f'sma_{sma_periods.short}_{sma_periods.long}'
 
     # из DF берем SMA по figi (SMA, предшествующие актуальным)
     previous_short_sma_2 = df_previous_sma.loc[figi].previous_short_sma
@@ -69,7 +69,7 @@ def calc_actual_signals_sma(n: int,
                             df_hist_signals_sma: DataFrame,
                             df_all_lasts: DataFrame,
                             df_historic_sma: DataFrame,
-                            df_previous_sma: DataFrame,
+                            df_previous_sma: List,
                             sma_periods: SMACrossPeriods) -> List[DataFrame]:
     """Функция получает из SMA.csv исторические скользящие средние. Далее по ластам считает актуальные скользящие.
     Все данные в итоге подаёт на вход def sma_cross"""
@@ -109,13 +109,14 @@ def calc_actual_signals_sma(n: int,
                                                         figi=figi, last_price=last_price,
                                                         df_shares=df_shares,
                                                         df_previous_sma=df_previous_sma,
-                                                        df_hist_sgnls=df_hist_signals_sma)
+                                                        df_hist_sgnls=df_hist_signals_sma,
+                                                        sma_periods=sma_periods)
 
                         # актуальные SMA становятся прошлыми
                         df_previous_sma.loc[figi] = [actual_short_sma, actual_long_sma]
 
     df_hist_signals_sma.to_csv(
-        path_or_buf='csv/historic_signals_sma_%i_%i.csv' % (sma_periods.short, sma_periods.long),
+        path_or_buf=f'csv/historic_signals_sma_{sma_periods.short}_{sma_periods.long}.csv',
         sep=';'
     )
 
