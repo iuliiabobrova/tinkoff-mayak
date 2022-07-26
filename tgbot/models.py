@@ -58,6 +58,7 @@ class Strategy(CreateTracker):
     def name(cls, strategy_id: str) -> str:
         return cls._all_cases[strategy_id]
 
+    # TODO Привести сообщение о подключении стратегии в соответствие с самой стратегией
     def description(self) -> str:
         if self.strategy_id.startswith('sma'):
             return sma_is_chosen
