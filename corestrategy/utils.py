@@ -20,10 +20,14 @@ def check_all_files_existing() -> bool:
              'csv/historic_profit_rsi.csv',
              'csv/historic_profit_sma.csv',
              'csv/historic_signals_rsi.csv',
-             'csv/historic_signals_sma.csv',
+             'csv/historic_signals_sma_50_200.csv',
+             'csv/historic_signals_sma_30_90.csv',
+             'csv/historic_signals_sma_20_60.csv',
              'csv/historic_volumes.csv',
              'csv/shares.csv',
-             'csv/sma.csv',
+             'csv/sma_50_200.csv',
+             'csv/sma_30_90.csv',
+             'csv/sma_20_60.csv',
              'csv/std.csv']
 
     return all(map(lambda file: exists(file), files))
