@@ -2,10 +2,8 @@
 """SMA"""
 std_period = 20  # дней (обязательно меньше sma_short_period)
 
-class SMACrossPeriods:
-    short: int
-    long: int
 
+class SMACrossPeriods:
     def __init__(self, short, long):
         self.short = short
         self.long = long
