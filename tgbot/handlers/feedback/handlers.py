@@ -1,7 +1,7 @@
 from telegram import Update
 from telegram.ext import CallbackContext
 
-from tgbot.handlers.feedback import static_text
+from tgbot import static_text
 from tgbot.models import Command, User, FeedbackMessage
 from tgbot.handlers.feedback.manage_data import ASK_FOR_FEEDBACK_STATE, GET_FEEDBACK_STATE, END_FEEDBACK_STATE
 from tgbot.handlers.feedback.keyboards import make_keyboard_for_feedback_command

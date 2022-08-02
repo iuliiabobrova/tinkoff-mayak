@@ -1,7 +1,7 @@
 from telegram import Update
 from telegram.ext import CallbackContext
 
-from tgbot.handlers.strategy_info import static_text
+from tgbot import static_text
 from tgbot.models import User, Command
 
 

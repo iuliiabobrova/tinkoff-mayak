@@ -1,4 +1,3 @@
-from os.path import exists
 from datetime import time, datetime
 from datetime import timedelta as td
 from threading import Event
@@ -12,23 +11,6 @@ def _now() -> datetime:
     return datetime.utcnow() + td(hours=3)
 
 
-def check_all_files_existing() -> bool:
-    """Проверяет, существуют ли все необходимые файлы"""
-
-    files = ['csv/amount_sma.csv',
-             'csv/historic_close_prices.csv',
-             'csv/historic_profit_rsi.csv',
-             'csv/historic_profit_sma.csv',
-             'csv/historic_signals_rsi.csv',
-             'csv/historic_signals_sma.csv',
-             'csv/historic_volumes.csv',
-             'csv/shares.csv',
-             'csv/sma.csv',
-             'csv/std.csv']
-
-    return all(map(lambda file: exists(file), files))
-
-
 def is_time_to_download_data() -> bool:
     """Проверяет, подходит ли время для объемной загрузки исторических данных"""
     value = time(hour=7) < _now().time() < time(hour=10)
@@ -40,14 +22,11 @@ def market_is_closed() -> bool:
     """Проверяет, закрыта ли биржа"""
     if _now().isoweekday() == 6:
         value = time(hour=1, minute=45) < _now().time() < time(hour=23, minute=59, second=59)
-        #print('def market_is_closed:', value)  # log can affect memory
         return value
     elif _now().isoweekday() == 7:
-        #print('def market_is_closed Now:', _now())  # log can affect memory
         return True
     else:
         value = time(hour=1, minute=45) < _now().time() < time(hour=10)
-        #print('def market_is_closed', value, _now())  # log can affect memory
         return value
 
 
@@ -89,42 +68,38 @@ def wait_until_market_is_open() -> None:
 
 
 def save_signal_to_df(buy_flag: int,
-                      sell_flag: int,
                       last_price: float,
                       figi: str,
                       date: datetime,
-                      strategy: str,
+                      strategy_id: str,
                       df_shares: DataFrame,
                       df: DataFrame,
                       rsi_float: float = None) -> DataFrame:
     """Помогает сохранить множество строк с сигналами в один DataFrame"""
 
-    #print('saving NEW signal', _now())  # be careful, this log can affect memory-usage
     try:
         profit = 0  # profit рассчитывается функцией calc_profit_sma() позже
         ticker = df_shares.loc[df_shares.index == figi].ticker[0]
         share_name = df_shares.loc[df_shares.index == figi].name[0]
         currency = df_shares.loc[df_shares.index == figi].currency[0]
-        if strategy == 'sma':
+        if strategy_id.startswith('sma'):
             df = concat(objs=[df, (DataFrame(data=[[figi,
                                                     ticker,
                                                     share_name,
                                                     date,
                                                     last_price,
-                                                    sell_flag,
                                                     buy_flag,
-                                                    strategy,
+                                                    strategy_id,
                                                     profit,
                                                     currency]], columns=columns_sma))],
                         ignore_index=True, copy=False)
-        if strategy == 'rsi':
+        if strategy_id.startswith('rsi'):
             df = concat(objs=[df, (DataFrame(data=[[figi,
                                                     ticker,
                                                     share_name,
                                                     date,
                                                     last_price,
                                                     rsi_float,
-                                                    sell_flag,
                                                     buy_flag,
                                                     'rsi',
                                                     profit,
@@ -132,7 +107,7 @@ def save_signal_to_df(buy_flag: int,
                         ignore_index=True, copy=False)
     except Exception as e:
         print(e)
-        print(figi, _now(), 'in def save_signal_to_df', strategy)
+        print(figi, _now(), 'in def save_signal_to_df', strategy_id)
     return df
 
 
@@ -143,10 +118,12 @@ def historic_data_is_actual(df: DataFrame) -> bool:
         df_date = df.index.max().date()
     else:
         df_date = df.datetime.max().date()
-    return (df_date + td(days=1) >= _now().date() + td(hours=1, minutes=45) or
-            _now().isoweekday() == 7 and df_date + td(days=2) >= _now().date() + td(hours=1, minutes=45) or
-            _now().isoweekday() == 1 and df_date + td(days=3) >= _now().date() + td(hours=1, minutes=45) or
-            _now().isoweekday() == 2 and df_date + td(days=4) >= _now().date() + td(hours=1, minutes=45) and time() < _now().time() < time(hour=7)
+    market_hour = _now().date() + td(hours=1, minutes=45)
+    return (
+        df_date + td(days=1) >= _now().date() + td(hours=1, minutes=45) or
+        _now().isoweekday() == 7 and df_date + td(days=2) >= market_hour or
+        _now().isoweekday() == 1 and df_date + td(days=3) >= market_hour or
+        _now().isoweekday() == 2 and df_date + td(days=4) >= market_hour and time() < _now().time() < time(hour=7)
             )
 
 
@@ -158,12 +135,14 @@ def get_n_digits(number):
         return 0
 
 
-def convert_stringprice_into_int_or_float(price: str) -> float or int:
-    ndigits = get_n_digits(price)
+def convert_string_price_into_int_or_float(price: str) -> float or int:
+    n_digits = get_n_digits(price)
     if float(price) // 1 == float(price):
         price = int(float(price))
+    elif price == 0 or price == None:
+        price = 0
     else:
-        price = round(float(price), ndigits)
+        price = round(float(price), n_digits)
     return price
 
 

@@ -9,6 +9,9 @@ from telegram import Update
 from telegram.ext import CallbackContext
 
 from dtb.settings import DEBUG
+from tgbot.static_text import (
+    sma_50_200_is_chosen, rsi_is_chosen, sma_30_90_is_chosen, sma_20_60_is_chosen
+)
 from tgbot.handlers.utils.info import extract_user_data_from_update
 from utils.models import CreateUpdateTracker, nb, CreateTracker, GetOrNoneManager
 
@@ -16,6 +19,56 @@ from utils.models import CreateUpdateTracker, nb, CreateTracker, GetOrNoneManage
 class AdminUserManager(Manager):
     def get_queryset(self):
         return super().get_queryset().filter(is_admin=True)
+
+
+class Strategy(CreateTracker):
+    _all_cases = {
+        'rsi': 'RSI',
+        'sma_50_200': 'cross-SMA 50-200',
+        'sma_30_90': 'cross-SMA 30-90',
+        'sma_20_60': 'cross-SMA 20-60'
+    }
+
+    def __init__(self, strategy_id: str, strategy_name: Optional[str] = None):
+        self.strategy_id = strategy_id
+        if strategy_name is None:
+            self.strategy_name = Strategy._all_cases[strategy_id]
+        else:
+            self.strategy_name = strategy_name
+
+    @classmethod
+    def sma_50_200(cls) -> Strategy:
+        return Strategy(strategy_id='sma_50_200')
+
+    @classmethod
+    def sma_30_90(cls) -> Strategy:
+        return Strategy(strategy_id='sma_30_90')
+
+    @classmethod
+    def sma_20_60(cls) -> Strategy:
+        return Strategy(strategy_id='sma_20_60')
+
+    @classmethod
+    def rsi(cls) -> Strategy:
+        return Strategy(strategy_id='rsi')
+
+    @classmethod
+    def all(cls) -> List[Strategy]:
+        return [cls.rsi(), cls.sma_50_200(), cls.sma_30_90(), cls.sma_20_60()]
+
+    @classmethod
+    def name(cls, strategy_id: str) -> str:
+        return cls._all_cases[strategy_id]
+
+    def description(self) -> str:
+        if self.strategy_id.startswith('sma_50_200'):
+            return sma_50_200_is_chosen
+        elif self.strategy_id.startswith('sma_30_90'):
+            return sma_30_90_is_chosen
+        elif self.strategy_id.startswith('sma_20_60'):
+            return sma_20_60_is_chosen
+        elif self.strategy_id.startswith('rsi'):
+            return rsi_is_chosen
 
 
 class Subscription(CreateTracker):

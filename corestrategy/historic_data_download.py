@@ -1,22 +1,20 @@
 # Код написан на основе документации API https://tinkoff.github.io/investAPI/
 # В основном используется Сервис Котировок https://tinkoff.github.io/investAPI/marketdata/
 # Figi - это уникальный ID акции
-# TODO вынести расчеты в отдельный модуль
 
 from os.path import exists, getmtime
 from typing import List
 from time import perf_counter
 
-from numpy import nanpercentile
-from pandas import DataFrame, read_csv, concat, merge, isna, to_datetime
+from pandas import DataFrame, read_csv, to_datetime
 from datetime import datetime, timedelta
-from tqdm import tqdm
 from time import sleep
 from tinkoff.invest import Client, CandleInterval
 
 from dtb.settings import INVEST_TOKEN
+from corestrategy.hitoric_data_calc import calc_historic_signals_sma, calc_sma, save_historic_signals_rsi
 from corestrategy.settings import *
-from corestrategy.utils import save_signal_to_df, historic_data_is_actual, _now, convert_stringprice_into_int_or_float
+from corestrategy.utils import historic_data_is_actual, _now, convert_string_price_into_int_or_float
 
 
 def get_shares_list_to_csv() -> List:
@@ -72,10 +70,12 @@ def one_figi_all_candles_request(figi: str,
         def_start_time = perf_counter()
 
         now_date = _now()
-        now_date = now_date - timedelta(hours=now_date.hour - 5,
-                                        minutes=now_date.minute,
-                                        seconds=now_date.second,
-                                        microseconds=now_date.microsecond)
+        now_date = now_date - timedelta(
+            hours=now_date.hour - 5,
+            minutes=now_date.minute,
+            seconds=now_date.second,
+            microseconds=now_date.microsecond
+        )
         date_from_ = now_date - timedelta(days=days) + timedelta(days=1)
         to_ = _now() + timedelta(days=1)
 
@@ -89,12 +89,14 @@ def one_figi_all_candles_request(figi: str,
                     interval=CandleInterval.CANDLE_INTERVAL_DAY,
             ):
                 # из ответа API парсит дату
-                data = datetime(year=candle.time.year,
-                                month=candle.time.month,
-                                day=candle.time.day)
+                data = datetime(
+                    year=candle.time.year,
+                    month=candle.time.month,
+                    day=candle.time.day
+                )
                 # из ответа API парсит цену закрытия
                 close_price = f'{candle.close.units}.{candle.close.nano}'
-                close_price = convert_stringprice_into_int_or_float(price=close_price)
+                close_price = convert_string_price_into_int_or_float(price=close_price)
                 volume = candle.volume  # из ответа API парсит объём торгов
 
                 # если данных нет, записывает новые
@@ -108,10 +110,12 @@ def one_figi_all_candles_request(figi: str,
     except Exception as e:
         print(e)
         sleep(60)
-        time_on_def = one_figi_all_candles_request(figi=figi,
-                                                   days=days,
-                                                   df_fin_volumes=df_fin_volumes,
-                                                   df_fin_close_prices=df_fin_close_prices)
+        time_on_def = one_figi_all_candles_request(
+            figi=figi,
+            days=days,
+            df_fin_volumes=df_fin_volumes,
+            df_fin_close_prices=df_fin_close_prices
+        )
 
     return time_on_def
 
@@ -148,273 +152,73 @@ def update_2_csv_with_historic_candles(df_fin_close_prices: DataFrame,
     return [df_fin_close_prices, df_fin_volumes]
 
 
-def calc_std(df_close_prices: DataFrame,
-             figi_list: List) -> DataFrame:
-    """Считает стандартное отклонение"""
+# проверка sma на актуальность
+def get_or_calc_sma(df_close_prices: DataFrame,
+                    figi_list: List,
+                    sma_periods: SMACrossPeriods) -> DataFrame:
+    file_path = f'csv/sma_{sma_periods.short}_{sma_periods.long}.csv'
+    if exists(path=file_path):
+        df = read_csv(
+            filepath_or_buffer=file_path,
+            sep=';',
+            index_col=0,
+            parse_dates=[0]
+        )
+        if historic_data_is_actual(df=df):
+            df_sma = df
+        else:
+            df_sma = calc_sma(
+                df_close_prices=df_close_prices,
+                figi_list=figi_list,
+                sma_periods=sma_periods,
+                csv_path=file_path
+            )
+    else:
+        df_sma = calc_sma(
+            df_close_prices=df_close_prices,
+            figi_list=figi_list,
+            sma_periods=sma_periods,
+            csv_path=file_path
+        )
 
-    df_price_std = DataFrame()  # пустой DF
-    for figi in figi_list:
-        sr_closes = df_close_prices[figi].dropna()  # получаем Series с close_prices для каждого figi
-        std = sr_closes.tail(std_period).pct_change().std().round(3)  # считаем стандартное отклонение
-        df_price_std.loc[figi, "std"] = std  # сохраняем стандартное отклонение в DF
-    df_price_std.to_csv(path_or_buf='csv/std.csv', sep=';')
-    print('✅Calc of STD done')
-
-    return df_price_std
-
-
-def calc_sma(df_close_prices: DataFrame,
-             figi_list: List) -> DataFrame:
-    """Считает SMA"""
-
-    df_sma_final = DataFrame()  # пустой DF
-    df_sma2 = DataFrame()  # пустой DF
-
-    print('⏩Start calculating SMA-float')
-    for figi in figi_list:
-        try:
-            df = df_close_prices[figi].dropna()  # получаем для каждого figi его Series с close_prices
-
-            # скользящие средние за короткий период
-            df_sma_short = df.rolling(period_of_short_sma - 1).mean().dropna().round(3)
-            # скользящие средние за длинный период
-            df_sma_long = df.rolling(period_of_long_sma - 1).mean().dropna().round(3)
-
-            # объединяем короткие и длинные скользящие средние
-            df_ma = concat([df_sma_short, df_sma_long], axis=1, copy=False)
-            # именуем столбцы корректно
-            df_ma.columns = [f'{figi}.short', f'{figi}.long']
-            # добавляем данные к итоговому DataFrame df_sma_final
-            df_sma_final = merge(df_sma2,
-                                 df_ma,
-                                 left_index=True,
-                                 right_index=True,
-                                 how='outer')
-            # сохраняем итоговый DF в переменную, чтобы можно было добавить данные следующим циклом
-            df_sma2 = df_sma_final
-
-        except KeyError:
-            print('No data to calc. Figi:', figi)
-
-    df_sma_final.sort_index()
-    df_sma_final.to_csv(path_or_buf='csv/sma.csv', sep=';')
-    print('✅Calc of SMA done')
-
-    return df_sma_final
+    return df_sma
 
 
-def historic_sma_cross(historic_short_sma: float,
-                       historic_long_sma: float,
-                       previous_historic_short_sma: float,
-                       previous_historic_long_sma: float,
-                       historic_last_price: float,
-                       historic_date: datetime,
-                       figi: str,
-                       df_shares: DataFrame,
-                       df_historic_signals_sma: DataFrame) -> DataFrame:
-    """Считает, пересекаются ли скользящие средние, а далее формирует сигнал, сохраняет его в DF"""
-
-    crossing_buy = ((historic_short_sma > historic_long_sma) & (
-            previous_historic_short_sma < previous_historic_long_sma) & (historic_last_price > historic_long_sma))
-    crossing_sell = ((historic_short_sma < historic_long_sma) & (
-            previous_historic_short_sma > previous_historic_long_sma) & (historic_last_price < historic_long_sma))
-
-    # формирование сигнала, запись в DF
-    if crossing_sell:
-        df_historic_signals_sma = save_signal_to_df(buy_flag=0, sell_flag=1, last_price=historic_last_price, figi=figi,
-                                                    date=historic_date, strategy='sma', df_shares=df_shares,
-                                                    df=df_historic_signals_sma)
-    if crossing_buy:
-        df_historic_signals_sma = save_signal_to_df(buy_flag=1, sell_flag=0, last_price=historic_last_price, figi=figi,
-                                                    date=historic_date, strategy='sma', df_shares=df_shares,
-                                                    df=df_historic_signals_sma)
+# проверка sma-signals на актуальность
+def get_or_calc_sma_historic_signals(df_close_prices: DataFrame,
+                                     df_sma: DataFrame,
+                                     df_shares: DataFrame,
+                                     sma_periods: SMACrossPeriods) -> DataFrame:
+    file_path = f'csv/historic_signals_sma_{sma_periods.short}_{sma_periods.long}.csv'
+    if exists(path=file_path):
+        df = read_csv(
+            filepath_or_buffer=file_path,
+            sep=';',
+            index_col=0,
+            parse_dates=['datetime']
+        )
+        if (historic_data_is_actual(df=df) or
+                (to_datetime(getmtime(file_path) * 1000000000).date() ==
+                 (_now() - timedelta(hours=1, minutes=45)).date())):
+            df_historic_signals_sma = df
+        else:
+            df_historic_signals_sma = calc_historic_signals_sma(
+                df_close_prices=df_close_prices,
+                df_historic_sma=df_sma,
+                df_shares=df_shares,
+                csv_path=file_path,
+                strategy_id=f'sma_{sma_periods.short}_{sma_periods.long}'
+            )
+    else:
+        df_historic_signals_sma = calc_historic_signals_sma(
+            df_close_prices=df_close_prices,
+            df_historic_sma=df_sma,
+            df_shares=df_shares,
+            csv_path=file_path,
+            strategy_id=f'sma_{sma_periods.short}_{sma_periods.long}'
+        )
 
     return df_historic_signals_sma
-
-
-def calc_historic_signals_sma_by_figi(figi: str,
-                                      amount_of_rows: int,
-                                      df_fin_close_prices: DataFrame,
-                                      df_all_historic_sma: DataFrame,
-                                      df_shares: DataFrame,
-                                      df_historic_signals_sma: DataFrame) -> DataFrame:
-    """Подготавливает данные о [historic_last_price, historic_SMA, historic_date] для функции historic_sma_cross.
-    По одному figi"""
-
-    for index_of_row in range(-1, -amount_of_rows, -1):
-
-        # подготовка DF с short_SMA и long_SMA по одному figi
-        sr_short_sma = df_all_historic_sma[f'{figi}.short'].dropna()
-        sr_long_sma = df_all_historic_sma[f'{figi}.long'].dropna()
-        if sr_short_sma.size != 0 and sr_long_sma.size != 0:  # проверка на пустой DF
-            historic_short_sma = float(sr_short_sma.loc[sr_short_sma.index[index_of_row]])
-            previous_historic_short_sma = float(sr_short_sma.loc[sr_short_sma.index[index_of_row - 1]])
-            historic_long_sma = float(sr_long_sma.loc[sr_long_sma.index[index_of_row]])
-            previous_historic_long_sma = float(sr_long_sma.loc[sr_long_sma.index[index_of_row - 1]])
-
-            historic_last_price = float(df_fin_close_prices[figi][index_of_row + 1])
-            if historic_last_price != 0:
-                historic_date = sr_long_sma.index[index_of_row]
-                df_historic_signals_sma = historic_sma_cross(historic_short_sma=historic_short_sma,
-                                                             historic_long_sma=historic_long_sma,
-                                                             previous_historic_short_sma=previous_historic_short_sma,
-                                                             previous_historic_long_sma=previous_historic_long_sma,
-                                                             historic_last_price=historic_last_price,
-                                                             historic_date=historic_date,
-                                                             figi=figi,
-                                                             df_shares=df_shares,
-                                                             df_historic_signals_sma=df_historic_signals_sma)
-    return df_historic_signals_sma
-
-
-def calc_historic_signals_sma(df_close_prices: DataFrame,
-                              df_historic_sma: DataFrame,
-                              df_shares: DataFrame) -> DataFrame:
-    """Подготовка данных для historic_sma_cross"""
-
-    # Подготовка DF
-    df_historic_signals_sma = DataFrame(columns=columns_sma)
-
-    print('⏩Historic signals SMA calc starts')
-    for figi in df_historic_sma.columns[::2]:
-        figi = figi[:12]
-        amount_of_rows = df_historic_sma[f'{figi}.long'].dropna().shape[0]
-        df_historic_signals_sma = calc_historic_signals_sma_by_figi(figi=figi,
-                                                                    df_fin_close_prices=df_close_prices,
-                                                                    df_all_historic_sma=df_historic_sma,
-                                                                    amount_of_rows=amount_of_rows,
-                                                                    df_shares=df_shares,
-                                                                    df_historic_signals_sma=df_historic_signals_sma)
-
-    df_historic_signals_sma.sort_values(by='datetime', inplace=True)
-    df_historic_signals_sma.reset_index(drop=True, inplace=True)
-    df_historic_signals_sma.to_csv(path_or_buf='csv/historic_signals_sma.csv', sep=';')
-    print('✅Historic_signals_SMA_are_saved')
-
-    return df_historic_signals_sma
-
-
-def calc_one_figi_signals_rsi(rsi: DataFrame,
-                              figi: str,
-                              upper_rsi: float,
-                              lower_rsi: float,
-                              df_close_prices: DataFrame,
-                              df_shares: DataFrame) -> DataFrame:
-    df = DataFrame(columns=columns_rsi)
-
-    for y in range(len(rsi[figi])):
-        rsi_float = rsi[figi][y]
-        historic_date_rsi = rsi.index[y]
-        historic_last_price_rsi = df_close_prices[figi][historic_date_rsi]
-
-        if isna(historic_last_price_rsi):  # если close_price пустая, берёт данные за последние 4 дня
-            for f in range(1, 5):
-                historic_date_rsi_2 = rsi.index[y - f]
-                historic_last_price_rsi = df_close_prices[figi][historic_date_rsi_2]
-
-        if rsi_float >= upper_rsi:  # если истина, записываем в DF сигнал на продажу
-            df = save_signal_to_df(buy_flag=0, sell_flag=1, last_price=historic_last_price_rsi, figi=figi,
-                                   date=historic_date_rsi, strategy='rsi', df_shares=df_shares, df=df,
-                                   rsi_float=rsi_float)
-
-        if rsi_float <= lower_rsi:  # если истина, записываем в DF сигнал на покупку
-
-            df = save_signal_to_df(buy_flag=1, sell_flag=0, last_price=historic_last_price_rsi, figi=figi,
-                                   date=historic_date_rsi, strategy='rsi', df_shares=df_shares, df=df,
-                                   rsi_float=rsi_float)
-
-    return df
-
-
-def calc_historic_signals_rsi(df_close_prices: DataFrame,
-                              df_shares: DataFrame) -> DataFrame:
-    """Функция позволяет рассчитать индикатор RSI и сигналы на основе индикатора.
-    Триггером являются самые низкие и самые высокие значения RSI, области которых обозначены в
-    переменных upper_rsi_percentile, lower_rsi_percentile"""
-
-    # расчет по формуле RSI
-    delta = df_close_prices.diff()
-    up = delta.clip(lower=0)
-    down = -1 * delta.clip(upper=0)
-    ema_up = up.ewm(com=period_of_ema, adjust=False).mean()
-    ema_down = down.ewm(com=period_of_ema, adjust=False).mean()
-    rs = ema_up / ema_down
-    rsi = (100 - (100 / (1 + rs))).round(2)
-
-    print('⏩Historic signals RSI calc starts')
-    for figi in df_close_prices.columns:
-        # верхняя граница RSI, значение 95 отсеивает RSI примерно выше 70
-        upper_rsi = nanpercentile(rsi[figi], upper_rsi_percentile)
-        # нижняя граница RSI, значение 2.5 отсеивает RSI примерно ниже 30
-        lower_rsi = nanpercentile(rsi[figi], lower_rsi_percentile)
-
-        df_historic_signals_rsi = calc_one_figi_signals_rsi(rsi=rsi,
-                                                            figi=figi,
-                                                            upper_rsi=upper_rsi,
-                                                            lower_rsi=lower_rsi,
-                                                            df_close_prices=df_close_prices,
-                                                            df_shares=df_shares)
-
-        yield df_historic_signals_rsi
-
-
-def save_historic_signals_rsi(df_close_prices: DataFrame,
-                              df_shares: DataFrame) -> DataFrame:
-    """Обеспечивает сохранение сигналов в DataFrame и CSV"""
-
-    list_df = calc_historic_signals_rsi(df_close_prices=df_close_prices,
-                                        df_shares=df_shares)
-    df_historic_signals_rsi = concat(objs=list_df, ignore_index=True, copy=False)
-
-    # Сортировка по дате. В конце самые актуальные сигналы
-    df_historic_signals_rsi.sort_values(by='datetime', inplace=True)
-    df_historic_signals_rsi.reset_index(drop=True, inplace=True)
-    df_historic_signals_rsi.to_csv(path_or_buf='csv/historic_signals_rsi.csv', sep=';')
-    print('✅Historic signals RSI are saved')
-
-    return df_historic_signals_rsi
-
-
-def calc_profit(df_historic_signals_rsi: DataFrame,
-                figi_list: List,
-                df_historic_signals_sma: DataFrame) -> None:
-    """Считает доходность от использования двух последних сигналов SMA и RSI"""
-
-    df_profit_sma = DataFrame(columns=['profit'])
-    df_profit_rsi = DataFrame(columns=['profit'])
-    profit = 'error'
-
-    for x in tqdm(range(len(figi_list)), desc='Calc_profit_of_sma_signals'):  # TODO убрать tqdm
-        try:
-            figi = figi_list[x]
-            if (df_historic_signals_sma.loc[figi].tail(2).sell_flag[0]) == 0 \
-                    and (df_historic_signals_sma.loc[figi].tail(2).buy_flag[0] == 1):
-                profit = (100 * (df_historic_signals_sma.loc[figi[:12]].tail(2).last_price.pct_change()[1])).round(2)
-            if (df_historic_signals_sma.loc[figi].tail(2).sell_flag[0]) == 1 \
-                    and (df_historic_signals_sma.loc[figi].tail(2).buy_flag[0] == 0):
-                profit = -(100 * (df_historic_signals_sma.loc[figi[:12]].tail(2).last_price.pct_change()[1])).round(2)
-            df_profit_sma.loc[figi] = profit
-        except:
-            # TODO заменить try-except на if (когда нет сигналов по бумаге)
-            pass
-
-    for x in tqdm(range(len(figi_list)), desc='Calc_profit_of_rsi_signals'):  # TODO убрать tqdm
-        try:
-            figi = figi_list[x]
-            if (df_historic_signals_rsi.loc[figi].tail(2).sell_flag[0]) == 0 and (
-                    df_historic_signals_rsi.loc[figi].tail(2).buy_flag[0] == 1):
-                profit = (100 * (df_historic_signals_rsi.loc[figi[:12]].tail(2).last_price.pct_change()[1])).round(2)
-            if (df_historic_signals_rsi.loc[figi].tail(2).sell_flag[0]) == 1 and (
-                    df_historic_signals_rsi.loc[figi].tail(2).buy_flag[0] == 0):
-                profit = -(100 * (df_historic_signals_rsi.loc[figi[:12]].tail(2).last_price.pct_change()[1])).round(2)
-            df_profit_rsi.loc[figi] = profit
-        except:
-            # TODO заменить try-except на if (когда нет сигналов по бумаге)
-            pass
-
-    df_profit_sma.to_csv(path_or_buf='csv/historic_profit_sma.csv', sep=';')
-    df_profit_rsi.to_csv(path_or_buf='csv/historic_profit_rsi.csv', sep=';')
-    print('✅Calculation_of_profit_is_done')
 
 
 def update_data() -> List:
@@ -427,91 +231,129 @@ def update_data() -> List:
 
     # проверка close_prices на актуальность
     if exists(path='csv/historic_close_prices.csv') and exists(path='csv/historic_volumes.csv'):
-        df_close_prices = read_csv(filepath_or_buffer='csv/historic_close_prices.csv',
-                                   sep=';',
-                                   index_col=0,
-                                   parse_dates=[0],
-                                   dtype=float)
+        df_close_prices = read_csv(
+            filepath_or_buffer='csv/historic_close_prices.csv',
+            sep=';',
+            index_col=0,
+            parse_dates=[0],
+            dtype=float
+        )
 
         if not historic_data_is_actual(df=df_close_prices):
-            df_volumes = read_csv(filepath_or_buffer='csv/historic_volumes.csv',
-                                  sep=';',
-                                  index_col=0,
-                                  parse_dates=[0],
-                                  dtype=float)
-            [df_close_prices, df_volumes] = update_2_csv_with_historic_candles(df_fin_close_prices=df_close_prices,
-                                                                               df_fin_volumes=df_volumes,
-                                                                               figi_list=figi_list)
+            df_volumes = read_csv(
+                filepath_or_buffer='csv/historic_volumes.csv',
+                sep=';',
+                index_col=0,
+                parse_dates=[0],
+                dtype=float
+            )
+            [df_close_prices, df_volumes] = update_2_csv_with_historic_candles(
+                df_fin_close_prices=df_close_prices,
+                df_fin_volumes=df_volumes,
+                figi_list=figi_list
+            )
     else:
         if exists(path='csv/historic_close_prices.csv'):
-            df_close_prices = read_csv(filepath_or_buffer='csv/historic_close_prices.csv',
-                                       sep=';',
-                                       index_col=0,
-                                       parse_dates=[0],
-                                       dtype=float)
+            df_close_prices = read_csv(
+                filepath_or_buffer='csv/historic_close_prices.csv',
+                sep=';',
+                index_col=0,
+                parse_dates=[0],
+                dtype=float
+            )
         else:
             df_close_prices = DataFrame()  # пустой DF, если файла нет
         if exists(path='csv/historic_volumes.csv'):
-            df_volumes = read_csv(filepath_or_buffer='csv/historic_volumes.csv',
-                                  sep=';',
-                                  index_col=0,
-                                  parse_dates=[0],
-                                  dtype=float)
+            df_volumes = read_csv(
+                filepath_or_buffer='csv/historic_volumes.csv',
+                sep=';',
+                index_col=0,
+                parse_dates=[0],
+                dtype=float
+            )
         else:
             df_volumes = DataFrame()  # пустой DF, если файла нет
-        [df_close_prices, df_volumes] = update_2_csv_with_historic_candles(df_fin_close_prices=df_close_prices,
-                                                                           df_fin_volumes=df_volumes,
-                                                                           figi_list=figi_list)
+        [df_close_prices, df_volumes] = update_2_csv_with_historic_candles(
+            df_fin_close_prices=df_close_prices,
+            df_fin_volumes=df_volumes,
+            figi_list=figi_list
+        )
 
-    # проверка sma на актуальность
-    if exists(path='csv/sma.csv'):
-        df = read_csv(filepath_or_buffer='csv/sma.csv',
-                      sep=';',
-                      index_col=0,
-                      parse_dates=[0])
-        if historic_data_is_actual(df=df):
-            df_sma = df
-        else:
-            df_sma = calc_sma(df_close_prices=df_close_prices, figi_list=figi_list)
-    else:
-        df_sma = calc_sma(df_close_prices=df_close_prices, figi_list=figi_list)
+    df_sma_50_200 = get_or_calc_sma(
+        df_close_prices=df_close_prices,
+        figi_list=figi_list,
+        sma_periods=sma_cross_periods_50_200
+    )
+    df_sma_30_90 = get_or_calc_sma(
+        df_close_prices=df_close_prices,
+        figi_list=figi_list,
+        sma_periods=sma_cross_periods_30_90
+    )
+    df_sma_20_60 = get_or_calc_sma(
+        df_close_prices=df_close_prices,
+        figi_list=figi_list,
+        sma_periods=sma_cross_periods_20_60
+    )
+    df_sma_list = [df_sma_50_200, df_sma_30_90, df_sma_20_60]
 
-    # проверка sma-signals на актуальность
-    if exists(path='csv/historic_signals_sma.csv'):
-        df = read_csv(filepath_or_buffer='csv/historic_signals_sma.csv',
-                      sep=';',
-                      index_col=0,
-                      parse_dates=['datetime'])
-        if (historic_data_is_actual(df=df) or
-                (to_datetime(getmtime('csv/historic_signals_sma.csv') * 1000000000).date() ==
-                 (_now() - timedelta(hours=1, minutes=45)).date())):
-            df_historic_signals_sma = df
-        else:
-            df_historic_signals_sma = calc_historic_signals_sma(df_close_prices=df_close_prices,
-                                                                df_historic_sma=df_sma,
-                                                                df_shares=df_shares)
-    else:
-        df_historic_signals_sma = calc_historic_signals_sma(df_close_prices=df_close_prices,
-                                                            df_historic_sma=df_sma,
-                                                            df_shares=df_shares)
+    df_historic_signals_sma_50_200 = get_or_calc_sma_historic_signals(
+        df_close_prices=df_close_prices,
+        df_sma=df_sma_50_200,
+        df_shares=df_shares,
+        sma_periods=sma_cross_periods_50_200
+    )
+    df_historic_signals_sma_30_90 = get_or_calc_sma_historic_signals(
+        df_close_prices=df_close_prices,
+        df_sma=df_sma_30_90,
+        df_shares=df_shares,
+        sma_periods=sma_cross_periods_30_90
+    )
+    df_historic_signals_sma_20_60 = get_or_calc_sma_historic_signals(
+        df_close_prices=df_close_prices,
+        df_sma=df_sma_20_60,
+        df_shares=df_shares,
+        sma_periods=sma_cross_periods_20_60
+    )
+    df_historic_signals_sma_list = [
+        df_historic_signals_sma_50_200,
+        df_historic_signals_sma_30_90,
+        df_historic_signals_sma_20_60
+    ]
 
     # проверка rsi-signals на актуальность
     if exists(path='csv/historic_signals_rsi.csv'):
-        df = read_csv(filepath_or_buffer='csv/historic_signals_rsi.csv',
-                      sep=';',
-                      index_col=0,
-                      parse_dates=['datetime'],
-                      low_memory=False)
+        df = read_csv(
+            filepath_or_buffer='csv/historic_signals_rsi.csv',
+            sep=';',
+            index_col=0,
+            parse_dates=['datetime'],
+            low_memory=False
+        )
         if historic_data_is_actual(df=df):
             df_historic_signals_rsi = df
+            df_rsi = read_csv(
+                filepath_or_buffer='csv/rsi.csv',
+                sep=';',
+                index_col=0
+            )
         else:
-            df_historic_signals_rsi = save_historic_signals_rsi(df_close_prices=df_close_prices,
-                                                                df_shares=df_shares)
+            [df_historic_signals_rsi, df_rsi] = save_historic_signals_rsi(
+                df_close_prices=df_close_prices,
+                df_shares=df_shares
+            )
     else:
-        df_historic_signals_rsi = save_historic_signals_rsi(df_close_prices=df_close_prices,
-                                                            df_shares=df_shares)
+        [df_historic_signals_rsi, df_rsi] = save_historic_signals_rsi(
+            df_close_prices=df_close_prices,
+            df_shares=df_shares
+        )
     # calc_std(df_close_prices=df_close_prices) TODO (пока не используется)
     # calc_profit(df_historic_signals_rsi=df_historic_signals_rsi)  TODO RSI-profit
     print('✅All data is actual')
 
-    return [figi_list, df_shares, df_close_prices, df_historic_signals_sma, df_historic_signals_rsi, df_sma]
+    return [figi_list,
+            df_shares,
+            df_close_prices,
+            df_historic_signals_sma_list,
+            df_historic_signals_rsi,
+            df_sma_list,
+            df_rsi]
