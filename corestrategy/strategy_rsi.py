@@ -67,7 +67,7 @@ def calc_actual_signals_rsi(df_shares: DataFrame,
                                     send_signal_to_strategy_subscribers(df=df_hist_sgnls)
                                     df_hist_sgnls.to_csv(path_or_buf='csv/historic_signals_rsi.csv', sep=';')
 
-                            elif sr_last_signal.buy_flag != buy_flag:
+                            elif sr_last_signal.buy_flag[0] != buy_flag:
                                 df_hist_sgnls = save_signal_to_df(buy_flag=buy_flag, last_price=last_price, figi=figi,
                                                                   date=date, strategy_id='rsi', df_shares=df_shares,
                                                                   df=df_hist_sgnls, rsi_float=rsi)
