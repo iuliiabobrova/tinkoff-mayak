@@ -69,23 +69,9 @@ if __name__ == "__main__":
         n = 0
 
         for x in range(len(df1)):
-            if len(str(df2.loc[df2.index[x]].nano)) == 1:
-                delimetr = 1
-            elif len(str(df2.loc[df2.index[x]].nano)) == 9:
-                delimetr = 1_000_000_000
-            elif len(str(df2.loc[df2.index[x]].nano)) == 8:
-                delimetr = 100_000_000
-            elif len(str(df2.loc[df2.index[x]].nano)) == 7:
-                delimetr = 10_000_000
-            elif len(str(df2.loc[df2.index[x]].nano)) == 6:
-                delimetr = 1_000_000
-            else:
-                print('nano:', df2.loc[df2.index[x]].nano)
-                print('len:', len(str(df2.loc[df2.index[x]].nano)))
-                raise ValueError
 
             last_old = df1.loc[df1.index[x]].last_price
-            last_new = (df2.loc[df2.index[x]].units + (df2.loc[df2.index[x]].nano / delimetr)).round(6)
+            last_new = (df2.loc[df2.index[x]].units + (df2.loc[df2.index[x]].nano / 1_000_000_000)).round(6)
             if last_new != last_old:
                 print('df1:', last_old)
                 print('df2:', last_new)

@@ -34,28 +34,10 @@ def get_all_lasts(figi_list: list) -> DataFrame:
             if last_is_actual(last_price=n):
                 date_time = datetime(n.time.year, n.time.month, n.time.day, n.time.hour, n.time.minute, n.time.second)
 
-                if len(str(n.price.nano)) == 1:
-                    delimetr = 10
-                elif len(str(n.price.nano)) == 9:
-                    delimetr = 1_000_000_000
-                elif len(str(n.price.nano)) == 8:
-                    delimetr = 100_000_000
-                elif len(str(n.price.nano)) == 7:
-                    delimetr = 10_000_000
-                elif len(str(n.price.nano)) == 6:
-                    delimetr = 1_000_000
-                elif len(str(n.price.nano)) == 5:
-                    delimetr = 100_000
-                elif len(str(n.price.nano)) == 4:
-                    delimetr = 10_000
-                elif len(str(n.price.nano)) == 3:
-                    delimetr = 1_000
-                elif len(str(n.price.nano)) == 2:
-                    delimetr = 100
+                if n.price.nano == 0:
+                    last_price = n.price.units
                 else:
-                    print('error in module actual_data_download')
-                    raise ValueError
-                last_price = round(n.price.units + (n.price.nano / delimetr), 6)
+                    last_price = round(n.price.units + (n.price.nano / 1_000_000_000), 6)
 
                 figi = n.figi  # получает figi из ответа API
                 df.loc[len(df.index)] = [figi, last_price, date_time]  # сохраняем данные в DF

@@ -95,8 +95,10 @@ def one_figi_all_candles_request(figi: str,
                     day=candle.time.day
                 )
                 # из ответа API парсит цену закрытия
-                close_price = f'{candle.close.units}.{candle.close.nano}'
-                close_price = convert_string_price_into_int_or_float(price=close_price)
+                if candle.price.nano == 0:
+                    close_price = candle.price.units
+                else:
+                    close_price = round(candle.close.units + (candle.close.nano / 1_000_000_000), 6)
                 volume = candle.volume  # из ответа API парсит объём торгов
 
                 # если данных нет, записывает новые
