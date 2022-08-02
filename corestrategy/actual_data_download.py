@@ -5,7 +5,7 @@ from pandas import DataFrame
 from tinkoff.invest import Client
 
 from dtb.settings import INVEST_TOKEN
-from corestrategy.utils import _now, convert_string_price_into_int_or_float
+from corestrategy.utils import _now
 
 
 def last_is_actual(last_price) -> bool:
@@ -33,8 +33,30 @@ def get_all_lasts(figi_list: list) -> DataFrame:
         for n in request_lasts:
             if last_is_actual(last_price=n):
                 date_time = datetime(n.time.year, n.time.month, n.time.day, n.time.hour, n.time.minute, n.time.second)
-                last_price = f'{n.price.units}.{n.price.nano}'  # парсим last_price из ответа API
-                last_price = convert_string_price_into_int_or_float(price=last_price)
+
+                if len(str(n.price.nano)) == 1:
+                    delimetr = 10
+                elif len(str(n.price.nano)) == 9:
+                    delimetr = 1_000_000_000
+                elif len(str(n.price.nano)) == 8:
+                    delimetr = 100_000_000
+                elif len(str(n.price.nano)) == 7:
+                    delimetr = 10_000_000
+                elif len(str(n.price.nano)) == 6:
+                    delimetr = 1_000_000
+                elif len(str(n.price.nano)) == 5:
+                    delimetr = 100_000
+                elif len(str(n.price.nano)) == 4:
+                    delimetr = 10_000
+                elif len(str(n.price.nano)) == 3:
+                    delimetr = 1_000
+                elif len(str(n.price.nano)) == 2:
+                    delimetr = 100
+                else:
+                    print('error in module actual_data_download')
+                    raise ValueError
+                last_price = round(n.price.units + (n.price.nano / delimetr), 6)
+
                 figi = n.figi  # получает figi из ответа API
                 df.loc[len(df.index)] = [figi, last_price, date_time]  # сохраняем данные в DF
         df.set_index('figi', inplace=True)  # индексируем DF по figi
