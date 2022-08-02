@@ -16,7 +16,7 @@ def sma_cross(actual_short_sma: float,
               sma_periods: SMACrossPeriods) -> DataFrame:
     """Функция считает, пересекаются ли скользящие средние, а далее формирует и сохраняет сигнал"""
 
-    strategy_name = f'sma_{sma_periods.short}_{sma_periods.long}'
+    strategy_id = f'sma_{sma_periods.short}_{sma_periods.long}'
 
     # из DF берем SMA по figi (SMA, предшествующие актуальным)
     previous_short_sma_2 = df_previous_sma.loc[figi].previous_short_sma
@@ -35,7 +35,7 @@ def sma_cross(actual_short_sma: float,
         if not sr_last_signal.empty:
             if buy_flag == 1 and sr_last_signal.buy_flag.all() != 1:
                 df_hist_sgnls = save_signal_to_df(buy_flag=buy_flag, last_price=last_price, figi=figi, date=_now(),
-                                                  strategy_id=strategy_name, df_shares=df_shares, df=df_hist_sgnls)
+                                                  strategy_id=strategy_id, df_shares=df_shares, df=df_hist_sgnls)
                 send_signal_to_strategy_subscribers(df=df_hist_sgnls)
                 df_hist_sgnls.to_csv(
                     path_or_buf=f'csv/historic_signals_sma_{sma_periods.short}_{sma_periods.long}.csv',
@@ -43,7 +43,7 @@ def sma_cross(actual_short_sma: float,
                 )
             elif buy_flag == 0 and sr_last_signal.buy_flag.all() != 0:
                 df_hist_sgnls = save_signal_to_df(buy_flag=buy_flag, last_price=last_price, figi=figi, date=_now(),
-                                                  strategy_id=strategy_name, df_shares=df_shares, df=df_hist_sgnls)
+                                                  strategy_id=strategy_id, df_shares=df_shares, df=df_hist_sgnls)
                 send_signal_to_strategy_subscribers(df=df_hist_sgnls)
                 df_hist_sgnls.to_csv(
                     path_or_buf=f'csv/historic_signals_sma_{sma_periods.short}_{sma_periods.long}.csv',
@@ -51,7 +51,7 @@ def sma_cross(actual_short_sma: float,
                 )
         else:
             df_hist_sgnls = save_signal_to_df(buy_flag=buy_flag, last_price=last_price, figi=figi, date=_now(),
-                                              strategy_id=strategy_name, df_shares=df_shares, df=df_hist_sgnls)
+                                              strategy_id=strategy_id, df_shares=df_shares, df=df_hist_sgnls)
             send_signal_to_strategy_subscribers(df=df_hist_sgnls)
             df_hist_sgnls.to_csv(
                 path_or_buf=f'csv/historic_signals_sma_{sma_periods.short}_{sma_periods.long}.csv',

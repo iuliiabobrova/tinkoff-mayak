@@ -48,10 +48,15 @@ def send_signal_to_strategy_subscribers(df: DataFrame) -> None:
     signals = get_last_signals(df=df, amount=1)
     for signal in signals:
         strategy_id = signal.strategy_id
-        users_with_strategy = User.get_users_with_strategy_subscription(strategy_id=strategy_id)
+
+        users_with_strategy = list(User.get_users_with_strategy_subscription(strategy_id=strategy_id))
+        # TODO изменить в базе всех пользователей с подключенной sma на sma_50_200 и удалить if
+        if strategy_id == 'sma_50_200':
+            users_with_strategy += list(User.get_users_with_strategy_subscription(strategy_id='sma'))
+
         for user in users_with_strategy:
             _send_message(text=f"{signal}",
                           user_id=user.user_id,
                           disable_web_page_preview=True,
                           reply_markup=make_keyboard_for_signal(user.user_id, signal))
-            sleep(0.4)
+            sleep(0.04)
