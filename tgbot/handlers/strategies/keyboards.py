@@ -1,11 +1,13 @@
+from typing import List
+
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 from tgbot.models import Strategy
 
 
-def make_keyboard_for_strategies_connect() -> InlineKeyboardMarkup:
+def make_keyboard_for_strategies_connect(strategies: List[Strategy]) -> InlineKeyboardMarkup:
     buttons = map(
         lambda s: [InlineKeyboardButton(s.strategy_name, callback_data=f"{s.strategy_id}_connect")],
-        Strategy.all()
+        strategies
     )
     return InlineKeyboardMarkup(list(buttons))
 
