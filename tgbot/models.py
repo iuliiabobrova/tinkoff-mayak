@@ -52,7 +52,7 @@ class Strategy(CreateTracker):
 
     @classmethod
     def all(cls) -> List[Strategy]:
-        return [cls.sma_50_200(), cls.sma_30_90(), cls.sma_20_60(), cls.rsi()]
+        return [cls.rsi(), cls.sma_50_200(), cls.sma_30_90(), cls.sma_20_60()]
 
     @classmethod
     def name(cls, strategy_id: str) -> str:
