@@ -16,7 +16,7 @@ def strategy_connect(update: Update, context: CallbackContext) -> None:
     u = User.get_user(update, context)
     subscribed = u.subscribe_user_to_strategy(strategy_id=strategy.strategy_id)
 
-    Command.record(command_name=strategy.strategy_id, user_id=u.user_id, username=u.username)
+    Command.record(command_name=f'ON {strategy.strategy_name}', user_id=u.user_id, username=u.username)
     query.answer()
 
     if subscribed:

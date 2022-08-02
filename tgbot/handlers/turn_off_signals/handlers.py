@@ -13,8 +13,6 @@ def command_off(update: Update, context: CallbackContext) -> None:
     subscriptions = list(map(lambda item: item.strategy_id, u.user_subscriptions()))
     strategies = list(filter(lambda s: s.strategy_id in subscriptions, Strategy.all()))
 
-    Command.record(command_name="off", user_id=u.user_id, username=u.username)
-
     if len(strategies) == 1:
         u.unsubscribe_user_from_all_strategies()
         update.message.reply_text(static_text.off_signals)
@@ -37,6 +35,7 @@ def strategy_disconnect(update: Update, context: CallbackContext) -> None:
     query.answer()
 
     if unsubscribed:
+        Command.record(command_name=f'OFF {strategy.strategy_name}', user_id=u.user_id, username=u.username)
         message_text = strategy_off_signals(strategy.strategy_name)
         query.edit_message_text(text=message_text)
     else:
