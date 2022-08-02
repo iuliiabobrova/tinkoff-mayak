@@ -1,0 +1,67 @@
+;figi;ticker;share_name;datetime;last_price;sell_flag;buy_flag;strategy_id;profit;currency
+0;BBG00NPL9WH7;TPTX;Turning Point Therapeutics Inc;2022-06-23;75.34;0;1;sma;0;usd
+1;BBG00B3T3HD3;AA;Alcoa Corporation;2022-06-27;44.89;1;0;sma;0;usd
+2;BBG008NVB1C0;MNST;Monster Beverage;2022-06-27;97.34;0;1;sma;0;usd
+3;BBG000BMW2Z0;KMB;Kimberly-Clark;2022-06-30;134.72;0;1;sma;0;usd
+4;BBG000C734W3;REGN;Regeneron Pharmaceuticals;2022-06-30;615.36;1;0;sma;0;usd
+5;BBG00KR691K8;CVET;Covetrus Inc;2022-06-30;20.73;0;1;sma;0;usd
+6;BBG000BQWPC5;PCG;PG&E;2022-06-30;10.01;1;0;sma;0;usd
+7;BBG000BCBYT2;VRNT;Verint Systems Inc;2022-06-30;42.89;1;0;sma;0;usd
+8;BBG006473QX9;APLE;Apple Hospitality REIT;2022-06-30;14.71;1;0;sma;0;usd
+9;BBG000DWG505;BRK.B;Berkshire Hathaway;2022-06-30;278.51;1;0;sma;0;usd
+10;BBG001WWJTK5;PLAY;Dave & Buster's Entertainment Inc;2022-06-30;33.0;1;0;sma;0;usd
+11;BBG000CQCCK6;WIRE;Encore Wire Corporation;2022-06-30;102.55;1;0;sma;0;usd
+12;BBG000BB6KF5;MET;MetLife;2022-06-30;62.3;1;0;sma;0;usd
+13;BBG000C3NTN5;HOLX;Hologic;2022-06-30;71.42;1;0;sma;0;usd
+14;BBG000DSZTN6;CCJ;Cameco Corporation;2022-06-30;21.77;1;0;sma;0;usd
+15;BBG000BYQ0B1;TTMI;TTM Technologies Inc;2022-06-30;11.92;1;0;sma;0;usd
+16;BBG000BT7JW9;SNA;Snap-on;2022-07-01;199.82;1;0;sma;0;usd
+17;BBG000BBXVK5;ICFI;ICF International, Inc.;2022-07-01;92.42;1;0;sma;0;usd
+18;BBG000C7TF41;HAE;Haemonetics Corp;2022-07-01;65.73;0;1;sma;0;usd
+19;BBG000BKGXQ4;GATX;GATX Corporation;2022-07-01;91.28;1;0;sma;0;usd
+20;BBG000BQHGR6;OKE;ONEOK;2022-07-01;54.51;1;0;sma;0;usd
+21;BBG000BKR1D6;GWW;WW Grainger;2022-07-01;473.64;1;0;sma;0;usd
+22;BBG000BGCQT9;CRS;Carpenter Technology Corp;2022-07-01;27.06;1;0;sma;0;usd
+23;BBG000QTFDQ4;ATKR;Atkore International Group Inc;2022-07-01;85.79;1;0;sma;0;usd
+24;BBG000BF8CN3;ANDE;Andersons Inc;2022-07-05;30.75;1;0;sma;0;usd
+25;BBG000BSBBP1;ROL;Rollins;2022-07-05;35.33;0;1;sma;0;usd
+26;BBG000BF0K17;CAT;Caterpillar;2022-07-05;173.35;1;0;sma;0;usd
+27;BBG000GQGJT4;THS;TreeHouse Foods Inc;2022-07-05;44.45;0;1;sma;0;usd
+28;BBG005BT60Y8;NVEE;NV5 Global Inc;2022-07-05;115.55;1;0;sma;0;usd
+29;BBG000BGD7W6;MAR;Marriott International;2022-07-05;140.8;1;0;sma;0;usd
+30;BBG000FRVHB9;VTR;Ventas REIT;2022-07-05;50.25;1;0;sma;0;usd
+31;BBG0018FQNS6;PCRX;Pacira BioSciences Inc;2022-07-06;52.9;1;0;sma;0;usd
+32;BBG000BB07P9;GOLD;Barrick Gold;2022-07-06;15.79;1;0;sma;0;usd
+33;BBG000K82ZT8;CHKP;Check Point Software Technologies Ltd;2022-07-06;120.35;1;0;sma;0;usd
+34;BBG000G6Y5W4;MKC;McCormick & Co;2022-07-06;82.43;1;0;sma;0;usd
+35;BBG002WMH2F2;TMX;Terminix Global Holdings;2022-07-07;42.04;1;0;sma;0;usd
+36;BBG000BG7L34;RYN;Rayonier REIT;2022-07-07;34.07;1;0;sma;0;usd
+37;BBG000BKY1G5;WELL;Welltower REIT;2022-07-07;80.31;1;0;sma;0;usd
+38;BBG000BDHD29;UNVR;Univar Solutions Inc;2022-07-12;23.91;1;0;sma;0;usd
+39;BBG000BGSPS5;CW;Curtiss-Wright;2022-07-12;128.71;1;0;sma;0;usd
+40;BBG002NLDLV8;VIPS;Vipshop;2022-07-12;10.1;0;1;sma;0;usd
+41;BBG000BL0P40;HE;Hawaiian Electric Industries, Inc.;2022-07-12;39.9;1;0;sma;0;usd
+42;BBG000C19QW1;CHE;Chemed Corp;2022-07-12;490.81;0;1;sma;0;usd
+43;BBG000BP6LJ8;MO;Altria Group;2022-07-13;43.5;1;0;sma;0;usd
+44;BBG001R3MNY9;ENPH;Enphase Energy Inc;2022-07-13;213.96;0;1;sma;0;usd
+45;BBG0098VVDT9;OLLI;Ollie's Bargain Outlet Holding;2022-07-13;66.5;0;1;sma;0;usd
+46;BBG000BN8ZK8;DAR;Darling Ingredients Inc;2022-07-14;60.74;1;0;sma;0;usd
+47;BBG000BBHHP9;AIT;Applied Industrial Technologies;2022-07-14;95.44;1;0;sma;0;usd
+48;BBG000DKCC19;TSN;Tyson Foods;2022-07-14;81.72;1;0;sma;0;usd
+49;BBG00JRH1P95;WHD;Cactus Inc;2022-07-14;36.98;1;0;sma;0;usd
+50;BBG000BKDWB5;ABG;Asbury Automotive Group Inc;2022-07-14;172.74;1;0;sma;0;usd
+51;BBG000BQZMH4;PEG;Public Service Enterprise Group;2022-07-14;59.64;1;0;sma;0;usd
+52;BBG000BQ8KV2;NUE;Nucor;2022-07-14;118.3;1;0;sma;0;usd
+53;BBG000BJ26K7;ALB;Albemarle;2022-07-15;224.0;1;0;sma;0;usd
+54;BBG00GVP5JL4;SMPL;Simply Good Foods Co;2022-07-15;34.67;1;0;sma;0;usd
+55;BBG000BDXGP9;CAG;Conagra Brands;2022-07-15;33.18;1;0;sma;0;usd
+56;BBG000BH0FR6;SGEN;Seagen Inc.;2022-07-15;173.5;0;1;sma;0;usd
+57;BBG000DW4Q75;LNT;Alliant Energy;2022-07-15;56.37;1;0;sma;0;usd
+58;BBG000BN5LG7;VALE;Vale SA;2022-07-15;12.5;1;0;sma;0;usd
+59;BBG000BPDDB6;SLGN;Silgan Holdings Inc.;2022-07-15;41.22;1;0;sma;0;usd
+60;BBG000BS5170;RGLD;Royal Gold;2022-07-18;102.31;1;0;sma;0;usd
+61;BBG000QFH687;TGKA;ТГК-1;2022-07-18;0.793;0;1;sma;0;rub
+62;BBG000BPWXK1;NEM;Newmont Goldcorp Corporation;2022-07-19;50.62;1;0;sma;0;usd
+63;BBG000C7P5M7;MRKY;МРСК Юга;2022-07-19;0.314;0;1;sma;0;rub
+64;BBG000TJ6F42;MRKZ;Россети Северо-Запад;2022-07-22;0.2675;0;1;sma;0;rub
+65;BBG00475JZZ6;FEES;ФСК ЕЭС;2022-07-25;0.28;0;1;sma;0;rub
