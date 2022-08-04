@@ -1,6 +1,7 @@
 from datetime import time, datetime
 from datetime import timedelta as td
 from threading import Event
+from typing import List
 
 from pandas import DataFrame, concat, DatetimeIndex
 
@@ -70,45 +71,85 @@ def wait_until_market_is_open() -> None:
 def save_signal_to_df(buy_flag: int,
                       last_price: float,
                       figi: str,
-                      date: datetime,
+                      date_time: datetime,
                       strategy_id: str,
                       df_shares: DataFrame,
-                      df: DataFrame,
-                      rsi_float: float = None) -> DataFrame:
+                      df: DataFrame,  # historic_signals
+                      df_actual_signals: DataFrame = None,
+                      rsi_float: float = None) -> List:
     """Помогает сохранить множество строк с сигналами в один DataFrame"""
 
-    try:
-        profit = 0  # profit рассчитывается функцией calc_profit_sma() позже
-        ticker = df_shares.loc[df_shares.index == figi].ticker[0]
-        share_name = df_shares.loc[df_shares.index == figi].name[0]
-        currency = df_shares.loc[df_shares.index == figi].currency[0]
+    profit = 0  # profit рассчитывается функцией calc_profit_sma() позже
+    ticker = df_shares.loc[df_shares.index == figi].ticker[0]
+    share_name = df_shares.loc[df_shares.index == figi].name[0]
+    currency = df_shares.loc[df_shares.index == figi].currency[0]
+    country = df_shares.loc[df_shares.index == figi].country_of_risk[0]
+    if strategy_id.startswith('sma'):
+        df = concat(
+            objs=[df, (DataFrame(data=[[figi,
+                                        ticker,
+                                        share_name,
+                                        date_time,
+                                        last_price,
+                                        buy_flag,
+                                        strategy_id,
+                                        profit,
+                                        currency,
+                                        country]],
+                                 columns=columns_sma))],
+            ignore_index=True,
+            copy=False)
+    if strategy_id.startswith('rsi'):
+        df = concat(
+            objs=[df, (DataFrame(data=[[figi,
+                                        ticker,
+                                        share_name,
+                                        date_time,
+                                        last_price,
+                                        rsi_float,
+                                        buy_flag,
+                                        strategy_id,
+                                        profit,
+                                        currency,
+                                        country]],
+                                 columns=columns_rsi))],
+            ignore_index=True,
+            copy=False)
+
+    if df_actual_signals is not None:
         if strategy_id.startswith('sma'):
-            df = concat(objs=[df, (DataFrame(data=[[figi,
-                                                    ticker,
-                                                    share_name,
-                                                    date,
-                                                    last_price,
-                                                    buy_flag,
-                                                    strategy_id,
-                                                    profit,
-                                                    currency]], columns=columns_sma))],
-                        ignore_index=True, copy=False)
+            df_actual_signals = concat(
+                objs=[df_actual_signals, (DataFrame(data=[[figi,
+                                                           ticker,
+                                                           share_name,
+                                                           date_time,
+                                                           last_price,
+                                                           buy_flag,
+                                                           strategy_id,
+                                                           profit,
+                                                           currency,
+                                                           country]],
+                                                    columns=columns_sma))],
+                ignore_index=True,
+                copy=False)
         if strategy_id.startswith('rsi'):
-            df = concat(objs=[df, (DataFrame(data=[[figi,
-                                                    ticker,
-                                                    share_name,
-                                                    date,
-                                                    last_price,
-                                                    rsi_float,
-                                                    buy_flag,
-                                                    'rsi',
-                                                    profit,
-                                                    currency]], columns=columns_rsi))],
-                        ignore_index=True, copy=False)
-    except Exception as e:
-        print(e)
-        print(figi, _now(), 'in def save_signal_to_df', strategy_id)
-    return df
+            df_actual_signals = concat(
+                objs=[df_actual_signals, (DataFrame(data=[[figi,
+                                                           ticker,
+                                                           share_name,
+                                                           date_time,
+                                                           last_price,
+                                                           rsi_float,
+                                                           buy_flag,
+                                                           strategy_id,
+                                                           profit,
+                                                           currency,
+                                                           country]],
+                                                    columns=columns_rsi))],
+                ignore_index=True,
+                copy=False)
+
+    return [df, df_actual_signals]
 
 
 def historic_data_is_actual(df: DataFrame) -> bool:
@@ -120,11 +161,11 @@ def historic_data_is_actual(df: DataFrame) -> bool:
         df_date = df.datetime.max().date()
     market_hour = _now().date() + td(hours=1, minutes=45)
     return (
-        df_date + td(days=1) >= _now().date() + td(hours=1, minutes=45) or
-        _now().isoweekday() == 7 and df_date + td(days=2) >= market_hour or
-        _now().isoweekday() == 1 and df_date + td(days=3) >= market_hour or
-        _now().isoweekday() == 2 and df_date + td(days=4) >= market_hour and time() < _now().time() < time(hour=7)
-            )
+            df_date + td(days=1) >= _now().date() + td(hours=1, minutes=45) or
+            _now().isoweekday() == 7 and df_date + td(days=2) >= market_hour or
+            _now().isoweekday() == 1 and df_date + td(days=3) >= market_hour or
+            _now().isoweekday() == 2 and df_date + td(days=4) >= market_hour and time() < _now().time() < time(hour=7)
+    )
 
 
 def get_n_digits(number):
@@ -139,7 +180,7 @@ def convert_string_price_into_int_or_float(price: str) -> float or int:
     n_digits = get_n_digits(price)
     if float(price) // 1 == float(price):
         price = int(float(price))
-    elif price == 0 or price == None:
+    elif price == 0 or price is None:
         price = 0
     else:
         price = round(float(price), n_digits)

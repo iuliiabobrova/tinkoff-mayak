@@ -20,6 +20,7 @@ class Signal:
         self.strategy_id = kwargs['strategy_id']
         self.profit = kwargs['profit']
         self.currency = kwargs['currency']
+        self.country = kwargs['country']
         if self.currency=='usd':
             self.currency = '$'
         elif self.currency=='eur':

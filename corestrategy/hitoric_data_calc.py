@@ -91,15 +91,10 @@ def historic_sma_cross(historic_short_sma: float,
     # формирование сигнала, запись в DF
     if crossing_sell or crossing_buy:
         buy_flag = 0 if crossing_sell else 1
-        df_historic_signals_sma = save_signal_to_df(
-            buy_flag=buy_flag,
-            last_price=historic_last_price,
-            figi=figi,
-            date=historic_date,
-            strategy_id=strategy_id,
-            df_shares=df_shares,
-            df=df_historic_signals_sma
-        )
+        [df_historic_signals_sma, hist_signal] = save_signal_to_df(buy_flag=buy_flag, last_price=historic_last_price,
+                                                                   figi=figi, date_time=historic_date,
+                                                                   strategy_id=strategy_id, df_shares=df_shares,
+                                                                   df=df_historic_signals_sma)
 
     return df_historic_signals_sma
 
@@ -141,7 +136,7 @@ def calc_historic_signals_sma_by_figi(figi: str,
                     figi=figi,
                     df_shares=df_shares,
                     df_historic_signals_sma=df_historic_signals_sma,
-                    strategy_id = strategy_id
+                    strategy_id=strategy_id
                 )
     return df_historic_signals_sma
 
@@ -189,7 +184,7 @@ def calc_one_figi_signals_rsi(sr_rsi: Series,
     if size_of_df >= 20:
         size_of_df = 20
 
-    for y in range(size_of_df):
+    for y in range(-1, -size_of_df, -1):
         rsi_float = sr_rsi[y]
         historic_date_rsi = sr_rsi.index[y]
         historic_last_price_rsi = df_close_prices[figi][historic_date_rsi]
@@ -201,9 +196,9 @@ def calc_one_figi_signals_rsi(sr_rsi: Series,
 
         if rsi_float >= upper_rsi or rsi_float <= lower_rsi:  # если истина, записываем в DF сигнал
             buy_flag = 0 if rsi_float >= upper_rsi else 1
-            df = save_signal_to_df(buy_flag=buy_flag, last_price=historic_last_price_rsi, figi=figi,
-                                   date=historic_date_rsi, strategy_id='rsi', df_shares=df_shares, df=df,
-                                   rsi_float=rsi_float)
+            [df, hist_signal] = save_signal_to_df(buy_flag=buy_flag, last_price=historic_last_price_rsi, figi=figi,
+                                                  date_time=historic_date_rsi, strategy_id='rsi', df_shares=df_shares,
+                                                  df=df, rsi_float=rsi_float)
 
     return df
 

@@ -33,7 +33,8 @@ columns_rsi = ['figi',
                'buy_flag',
                'strategy_id',
                'profit',
-               'currency']
+               'currency',
+               'country']
 columns_sma = ['figi',
                'ticker',
                'share_name',
@@ -42,4 +43,5 @@ columns_sma = ['figi',
                'buy_flag',
                'strategy_id',
                'profit',
-               'currency']
+               'currency',
+               'country']

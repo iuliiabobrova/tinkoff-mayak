@@ -1,5 +1,5 @@
-sma_strategy_link = 'https://telegra.ph/Strategiya-Srednee-skolzyashchee-SMA-08-02'
-rsi_strategy_link = 'https://telegra.ph/Strategiya-Pereprodannostperekuplennost-po-RSI-08-02'
+sma_strategy_link = 'https://telegra.ph/Strategiya-Srednee-skolzyashchee-SMA-06-23'
+rsi_strategy_link = 'https://telegra.ph/Strategiya-Pereprodannost-po-RSI-06-23'
 disclaimer_link = "https://telegra.ph/Tinkoff-Mayak-07-05"
 
 rsi_is_chosen = (
@@ -92,8 +92,8 @@ disclaimer = (
 # /str_info
 strategy_with_links = (f'По ссылкам ниже можно узнать о стратегиях больше:\n'
                        f'\n'
-                       f'<a href="{rsi_strategy_link}"><b>RSI</b></a>\n'
-                       f'<a href="{sma_strategy_link}"><b>Среднее скользящее (cross-SMA)</b></a>')
+                       f'<a href="{sma_strategy_link}"><b>RSI</b></a>\n'
+                       f'<a href="{rsi_strategy_link}"><b>Среднее скользящее (cross-SMA)</b></a>')
 
 # /off
 what_to_disconnect = 'Какую стратегию отключить?'
