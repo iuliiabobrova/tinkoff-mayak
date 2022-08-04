@@ -95,7 +95,7 @@ def one_figi_all_candles_request(figi: str,
                     day=candle.time.day
                 )
                 # из ответа API парсит цену закрытия
-                if candle.price.nano == 0:
+                if candle.close.nano == 0:
                     close_price = candle.close.units
                 else:
                     close_price = round(candle.close.units + (candle.close.nano / 1_000_000_000), 6)
