@@ -1,8 +1,14 @@
 from pandas import read_csv
 from tgbot.handlers.strategies.utils import Signal
+import decimal
+from corestrategy.utils import func_duration
 
-df = read_csv(filepath_or_buffer='../../csv/historic_signals_sma_20_60.csv', sep=';')
-signals = df.tail(4).to_dict('records')
-print(signals)
-a = list(map(lambda x: Signal(**x), signals))
-print(a[0])
+
+@func_duration
+def dura():
+    for i in range(9999):
+        print(2)
+
+
+a = dura()
+print(a)

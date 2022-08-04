@@ -5,153 +5,108 @@
 from os.path import exists, getmtime
 from typing import List
 from time import perf_counter
+from threading import Event
 
 from pandas import DataFrame, read_csv, to_datetime
 from datetime import datetime, timedelta
-from time import sleep
 from tinkoff.invest import Client, CandleInterval
+from tinkoff.invest.utils import quotation_to_decimal
 
 from dtb.settings import INVEST_TOKEN
 from corestrategy.hitoric_data_calc import calc_historic_signals_sma, calc_sma, save_historic_signals_rsi
 from corestrategy.settings import *
-from corestrategy.utils import historic_data_is_actual, _now, convert_string_price_into_int_or_float
+from corestrategy.utils import historic_data_is_actual, _now
+from tgbot.models import HistoricCandle, Share
 
 
-def get_shares_list_to_csv() -> List:
+def download_shares() -> None:
     """Позволяет получить из API список всех акций и их параметров"""
 
     try:
-        with Client(INVEST_TOKEN) as client:  # обёртка
-            # запрашивает название всех акций и закладывает их в переменную
-            all_shares = client.instruments.shares()
-        df_shares = DataFrame(data=all_shares.instruments)
-        df_shares.set_index(keys=['figi'], inplace=True)
-        figi_list = df_shares.index.tolist()
-        df_shares.to_csv(path_or_buf='csv/shares.csv', sep=';')
+        with Client(INVEST_TOKEN) as client:
+            for share in client.instruments.shares():
+                Share.create(share=share)
+
         print('✅Downloaded list of shares')
 
     except Exception as e:
         print('No internet connection? Reconnecting in 60 sec:')
         print(e)
-        sleep(60)
-        [figi_list, df_shares] = get_shares_list_to_csv()
-
-    return [figi_list, df_shares]
+        Event().wait(60)
+        download_shares()
 
 
-def last_data_parser(figi: str,
-                     df_close_prices: DataFrame) -> datetime:
-    """Позволяет получить самую позднюю дату из csv-файла c Historic_close_prices в формате datetime.
-    используется в def one_figi_all_candles_request"""
-
-    if exists('csv/historic_close_prices.csv'):  # проверка на существование файла
-        try:
-            # выделяем последнюю дату из df_close_prices
-            figi_last_date = df_close_prices[figi].dropna().index.max()
-
-        except KeyError:  # исключает случай, когда появляется новый figi
-            figi_last_date = datetime(2012, 1, 1)
-
-    else:
-        figi_last_date = datetime(2012, 1, 1)
-
-    return figi_last_date
-
-
-def one_figi_all_candles_request(figi: str,
-                                 days: int,
-                                 df_fin_volumes: DataFrame,
-                                 df_fin_close_prices: DataFrame) -> float:
-    """Запрашивает все ОТСУТСТВУЮЩИЕ свечи по ОДНОМУ str(figi).
-    Далее парсит полученные данные (цену закрытия, объёмы).
+def download_candles_by_figi(figi: str, days: int, **kwargs) -> float:
+    """Запрашивает все ОТСУТСТВУЮЩИЕ свечи по ОДНОМУ str(figi)
     Сохраняет данные в df."""
 
     try:
-        def_start_time = perf_counter()
 
-        now_date = _now()
-        now_date = now_date - timedelta(
-            hours=now_date.hour - 5,
-            minutes=now_date.minute,
-            seconds=now_date.second,
-            microseconds=now_date.microsecond
+        now_date = _now() - timedelta(
+            hours=_now().hour - 5,  # TODO почему 5 ?
+            minutes=_now().minute,
+            seconds=_now().second,
+            microseconds=_now().microsecond
         )
-        date_from_ = now_date - timedelta(days=days) + timedelta(days=1)
-        to_ = _now() + timedelta(days=1)
+        date_from = now_date - timedelta(days=days) + timedelta(days=1)
+        date_to = _now() + timedelta(days=1)  # TODO refactor
 
         with Client(INVEST_TOKEN) as client:
-            for candle in client.get_all_candles(
-                    figi=figi,  # сюда должен поступать только один figi (id акции)
-                    # период времени определяется динамически функцией last_data_parser
-                    from_=date_from_,
-                    to=to_,
-                    # запрашиваемая размерность японских свеч (дневная)
-                    interval=CandleInterval.CANDLE_INTERVAL_DAY,
-            ):
-                # из ответа API парсит дату
-                data = datetime(
-                    year=candle.time.year,
-                    month=candle.time.month,
-                    day=candle.time.day
-                )
-                # из ответа API парсит цену закрытия
-                if candle.price.nano == 0:
-                    close_price = candle.close.units
-                else:
-                    close_price = round(candle.close.units + (candle.close.nano / 1_000_000_000), 6)
-                volume = candle.volume  # из ответа API парсит объём торгов
+            candles = client.get_all_candles(
+                figi=figi,  # сюда должен поступать только один figi (id акции)
+                from_=date_from,  # период времени определяется динамически
+                to=date_to,
+                interval=CandleInterval.CANDLE_INTERVAL_DAY,  # запрашиваемая размерность свеч (дневная)
+            )
+            for candle in candles:
+                HistoricCandle.create(candle=candle, figi=figi)
 
-                # если данных нет, записывает новые
-                df_fin_close_prices.at[data, figi] = close_price
-                # если данных нет, записывает новые
-                df_fin_volumes.at[data, figi] = volume
 
-        def_stop_time = perf_counter()
-        time_on_def = def_stop_time - def_start_time
 
     except Exception as e:
         print(e)
-        sleep(60)
-        time_on_def = one_figi_all_candles_request(
-            figi=figi,
-            days=days,
-            df_fin_volumes=df_fin_volumes,
-            df_fin_close_prices=df_fin_close_prices
-        )
+        Event().wait(60)
+        func_duration = download_candles_by_figi(figi=figi, days=days)
 
-    return time_on_def
+    return func_duration
 
 
-def update_2_csv_with_historic_candles(df_fin_close_prices: DataFrame,
-                                       df_fin_volumes: DataFrame.index,
-                                       figi_list: List) -> List[DataFrame]:
-    """Позволяет создать два CSV-файла с historic_close_prices и historic_volumes"""
+def download_historic_candles(figi_list: List) -> None:
+    """Позволяет загрузить исторические свечи из АПИ в БД"""
+
+    max_days_available_by_api = 366
+    min_request_duration_in_seconds = 1 / 5  # 5 запросов в 1 секунду
 
     print('⏩Downloading historic candles')
     for figi in figi_list:
-        last_date = last_data_parser(figi, df_fin_close_prices)
+        last_date = HistoricCandle.get_last_datetime_by_figi(figi=figi)
+        if last_date is None:
+            last_date = datetime(year=2012, month=1, day=1)
         days = (_now() - last_date).days
-        # выше подготовка входных данных для функций
 
-        if days != 0:  # проверка: не запрашиваем ли существующие в CSV данные
-            time_on_def = one_figi_all_candles_request(figi=figi,
-                                                       days=days,
-                                                       df_fin_volumes=df_fin_volumes,
-                                                       df_fin_close_prices=df_fin_close_prices)
-            if days < 367:
-                if time_on_def < 0.201:
-                    sleep(0.201 - time_on_def)  # API позволяет делать не более 300 запросов в минуту
-            elif time_on_def < 3:
-                sleep(3 - time_on_def)
+        if days == 0:  # проверка: не запрашиваем ли существующие в CSV данные
+            continue
 
-    df_fin_close_prices = df_fin_close_prices.sort_index()  # сортируем DF по датам по возрастанию
-    df_fin_close_prices.to_csv(path_or_buf='csv/historic_close_prices.csv', sep=';')
+        func_start_time = 0
+        func_stop_time = 0
 
-    df_fin_volumes = df_fin_volumes.sort_index()  # сортируем DF по датам по возрастанию
-    df_fin_volumes.to_csv(path_or_buf='csv/historic_volumes.csv', sep=';')
+        def on_start():
+            func_start_time = perf_counter()
+
+        def on_finish():
+            func_stop_time = perf_counter()
+
+        download_candles_by_figi(figi=figi, days=days, on_start=on_start, on_finish=on_finish)
+        duration = func_stop_time - func_start_time
+
+        if days <= max_days_available_by_api:
+            if download_duration < min_request_duration_in_seconds:
+                Event().wait(
+                    min_request_duration_in_seconds - download_duration)  # API позволяет делать не более 300 запросов в минуту
+        elif download_duration < 3:
+            Event().wait(3 - download_duration)
+
     print('✅Successfully downloaded and saved historic candles')
-
-    return [df_fin_close_prices, df_fin_volumes]
 
 
 # проверка sma на актуальность
@@ -249,7 +204,7 @@ def update_data() -> List:
                 parse_dates=[0],
                 dtype=float
             )
-            [df_close_prices, df_volumes] = update_2_csv_with_historic_candles(
+            [df_close_prices, df_volumes] = download_historic_candles(
                 df_fin_close_prices=df_close_prices,
                 df_fin_volumes=df_volumes,
                 figi_list=figi_list

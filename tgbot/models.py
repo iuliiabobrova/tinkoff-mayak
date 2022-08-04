@@ -1,12 +1,17 @@
 from __future__ import annotations
 
+from datetime import datetime
+from decimal import Decimal
 from typing import Union, Optional, Tuple, List
 
+import tinkoff.invest.schemas as schemas
 from django.db import models
 from django.db.models import QuerySet, Manager
 from numpy import number
 from telegram import Update
 from telegram.ext import CallbackContext
+from tinkoff.invest import Share
+from tinkoff.invest.utils import quotation_to_decimal
 
 from dtb.settings import DEBUG
 from tgbot.static_text import (
@@ -221,7 +226,7 @@ class FeedbackMessage(CreateTracker):
     text = models.CharField(max_length=4096)
     user = models.ForeignKey(User, on_delete=models.CASCADE)
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f'{self.text}'
 
     @classmethod
@@ -254,3 +259,104 @@ class Location(CreateTracker):
         else:
             save_data_from_arcgis.delay(
                 latitude=self.latitude, longitude=self.longitude, location_id=self.pk)
+
+
+class HistoricCandle(models.Model):
+    open_price = models.DecimalField()
+    high_price = models.DecimalField()
+    low_price = models.DecimalField()
+    close_price = models.DecimalField()
+    volume = models.IntegerField()
+    date_time = models.DateTimeField()
+    figi = models.CharField(max_length=32, **nb)
+
+    @classmethod
+    def create(cls, candle: schemas.HistoricCandle, figi: str) -> None:
+        date_time = datetime(
+            year=candle.time.year,
+            month=candle.time.month,
+            day=candle.time.day
+        )
+        cls.objects.create(
+            open_price=quotation_to_decimal(candle.open),
+            close_price=quotation_to_decimal(candle.close),
+            high_price=quotation_to_decimal(candle.high),
+            low_price=quotation_to_decimal(candle.low),
+            volume=candle.volume,
+            date_time=date_time,
+            figi=figi
+        )
+
+    @classmethod
+    def get_candles_by_figi(cls, figi: str) -> List[HistoricCandle]:
+        return list(cls.objects.filter(figi=figi))
+
+    @classmethod
+    def get_last_datetime_by_figi(cls, figi: str) -> Optional[datetime]:
+        return max(map(lambda candle: candle.date_time, cls.get_candles_by_figi(figi=figi)))
+
+
+class Share(models.Model):
+    figi: models.CharField(max_length=32, **nb)
+    ticker: models.CharField(max_length=32, **nb)
+    class_code: models.CharField(max_length=32, **nb)
+    isin: models.CharField(max_length=32, **nb)
+    lot: models.IntegerField(default=1)
+    currency: models.CharField(max_length=32, **nb)
+    klong: models.DecimalField()
+    kshort: models.DecimalField()
+    dlong: models.DecimalField()
+    dshort: models.DecimalField()
+    dlong_min: models.DecimalField()
+    dshort_min: models.DecimalField()
+    short_enabled_flag: models.BooleanField(default=False)
+    name: models.CharField(max_length=32, **nb)
+    exchange: models.CharField(max_length=32, **nb)
+    ipo_date: models.DateTimeField()
+    issue_size: models.IntegerField()
+    country_of_risk: models.CharField(max_length=32, **nb)
+    country_of_risk_name: models.CharField(max_length=32, **nb)
+    sector: models.CharField(max_length=32, **nb)
+    issue_size_plan: models.IntegerField()
+    trading_status: models.IntegerField()
+    otc_flag: models.BooleanField(default=False)
+    buy_available_flag: models.BooleanField(default=False)
+    sell_available_flag: models.BooleanField(default=False)
+    div_yield_flag: models.BooleanField(default=False)
+    share_type: models.IntegerField()
+    min_price_increment: models.DecimalField()
+    api_trade_available_flag: models.BooleanField(default=False)
+
+    @classmethod
+    def create(cls, share: schemas.Share):
+        cls.objects.create(
+            figi=share.figi,
+            ticker=share.ticker,
+            class_code=share.class_code,
+            isin=share.isin,
+            lot=share.lot,
+            currency=share.currency,
+            klong=quotation_to_decimal(share.klong),
+            kshort=quotation_to_decimal(share.kshort),
+            dlong=quotation_to_decimal(share.dlong),
+            dshort=quotation_to_decimal(share.dshort),
+            dlong_min=quotation_to_decimal(share.dlong_min),
+            dshort_min=quotation_to_decimal(share.dshort_min),
+            short_enabled_flag=share.short_enabled_flag,
+            name=share.name,
+            exchange=share.exchange,
+            ipo_date=share.ipo_date,
+            issue_size=share.issue_size,
+            country_of_risk=share.country_of_risk,
+            country_of_risk_name=share.country_of_risk_name,
+            sector=share.sector,
+            issue_size_plan=share.issue_size_plan,
+            trading_status=share.trading_status,
+            otc_flag=share.otc_flag,
+            buy_available_flag=share.buy_available_flag,
+            sell_available_flag=share.sell_available_flag,
+            div_yield_flag=share.div_yield_flag,
+            share_type=share.share_type,
+            min_price_increment=share.min_price_increment,
+            api_trade_available_flag=share.api_trade_available_flag
+        )

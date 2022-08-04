@@ -1,6 +1,7 @@
 from datetime import time, datetime
 from datetime import timedelta as td
 from threading import Event
+from time import perf_counter
 from typing import List
 
 from pandas import DataFrame, concat, DatetimeIndex
@@ -185,6 +186,17 @@ def convert_string_price_into_int_or_float(price: str) -> float or int:
     else:
         price = round(float(price), n_digits)
     return price
+
+
+def func_duration(func):
+    def wrapper():
+        func_start_time = perf_counter()
+        func()
+        func_stop_time = perf_counter()
+        return func_stop_time - func_start_time
+
+    return wrapper
+
 
 
 hours_7 = 25201  # seconds
