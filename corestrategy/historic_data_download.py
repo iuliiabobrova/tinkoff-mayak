@@ -96,7 +96,7 @@ def one_figi_all_candles_request(figi: str,
                 )
                 # из ответа API парсит цену закрытия
                 if candle.price.nano == 0:
-                    close_price = candle.price.units
+                    close_price = candle.close.units
                 else:
                     close_price = round(candle.close.units + (candle.close.nano / 1_000_000_000), 6)
                 volume = candle.volume  # из ответа API парсит объём торгов
