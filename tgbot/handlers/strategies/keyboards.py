@@ -1,7 +1,7 @@
 from typing import List
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
-from tgbot.models import Strategy
+from corestrategy.utils import Strategy
 
 
 def make_keyboard_for_strategies_connect(strategies: List[Strategy]) -> InlineKeyboardMarkup:

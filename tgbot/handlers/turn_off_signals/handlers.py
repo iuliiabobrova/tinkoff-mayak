@@ -5,8 +5,9 @@ from tgbot.handlers.turn_off_signals.keyboards import make_keyboard_for_strategi
 from tgbot.static_text import (
     what_to_disconnect, no_subscriptions_to_strategy, strategy_off_signals
 )
-from tgbot.models import User, Command, Strategy
+from tgbot.models import User, Command
 from tgbot import static_text
+from corestrategy.utils import Strategy
 
 
 def command_off(update: Update, context: CallbackContext) -> None:
