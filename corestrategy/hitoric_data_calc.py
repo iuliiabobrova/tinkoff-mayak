@@ -34,13 +34,15 @@ def calc_sma(sma_periods: SMACrossPeriods):
     print('⏩Start calculating SMA-float')
     for figi in Share.get_figi_list():
         try:
-            HistoricCandle.get_candles_by_figi(figi=figi)
+            list_of_historic_prices = HistoricCandle.get_candles_by_figi(figi=figi).close_price
+            sr_historic_prices = Series(list_of_historic_prices)
 
             # скользящие средние за короткий период
-            df_sma_short = df.rolling(sma_periods.short - 1).mean().dropna().round(3)
+            sr_sma_short = sr_historic_prices.rolling(sma_periods.short - 1).mean().dropna().round(3)
             # скользящие средние за длинный период
-            df_sma_long = df.rolling(sma_periods.long - 1).mean().dropna().round(3)
+            sr_sma_long = sr_historic_prices.rolling(sma_periods.long - 1).mean().dropna().round(3)
 
+            # TODO refactor запись в БД и проверить результаты sr_sma_long, sr_sma_short
             # объединяем короткие и длинные скользящие средние
             df_ma = concat([df_sma_short, df_sma_long], axis=1, copy=False)
             # именуем столбцы корректно
@@ -52,16 +54,12 @@ def calc_sma(sma_periods: SMACrossPeriods):
     print('✅Calc of SMA done')
 
 
-def historic_sma_cross(historic_short_sma: float,
-                       historic_long_sma: float,
-                       previous_historic_short_sma: float,
+def historic_sma_cross(previous_historic_short_sma: float,
                        previous_historic_long_sma: float,
                        historic_last_price: float,
                        historic_date: datetime,
                        figi: str,
-                       strategy_id: str,
-                       df_shares: DataFrame,
-                       df_historic_signals_sma: DataFrame) -> DataFrame:
+                       strategy_id: str) -> DataFrame:
     """Считает, пересекаются ли скользящие средние, а далее формирует сигнал, сохраняет его в DF"""
 
     crossing_buy = ((historic_short_sma > historic_long_sma) & (
@@ -82,11 +80,7 @@ def historic_sma_cross(historic_short_sma: float,
 
 def calc_historic_signals_sma_by_figi(figi: str,
                                       amount_of_rows: int,
-                                      strategy_id: str,
-                                      df_fin_close_prices: DataFrame,
-                                      df_all_historic_sma: DataFrame,
-                                      df_shares: DataFrame,
-                                      df_historic_signals_sma: DataFrame) -> DataFrame:
+                                      strategy_id: str) -> DataFrame:
     """Подготавливает данные о [historic_last_price, historic_SMA, historic_date] для функции historic_sma_cross.
     По одному figi"""
 
@@ -128,9 +122,6 @@ def calc_historic_signals_sma(df_close_prices: DataFrame,
                               csv_path: str,
                               strategy_id: str) -> DataFrame:
     """Подготовка данных для historic_sma_cross"""
-
-    # Подготовка DF
-    df_historic_signals_sma = DataFrame(columns=columns_sma)
 
     print(f'⏩Historic signals {strategy_id} calc starts', )
     for figi in df_historic_sma.columns[::2]:

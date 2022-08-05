@@ -1,12 +1,65 @@
+import functools
+from asyncio import sleep as asyncsleep
 from datetime import time, datetime
 from datetime import timedelta as td
 from threading import Event
 from time import perf_counter
-from typing import List
+from typing import List, Optional
 
-from pandas import DataFrame, concat, DatetimeIndex
+from pandas import DataFrame, concat
 
 from corestrategy.settings import columns_rsi, columns_sma
+from tgbot.static_text import sma_50_200_is_chosen, sma_30_90_is_chosen, sma_20_60_is_chosen, rsi_is_chosen
+
+
+class Strategy:
+    _all_cases = {
+        'rsi': 'RSI',
+        'sma_50_200': 'cross-SMA 50-200',
+        'sma_30_90': 'cross-SMA 30-90',
+        'sma_20_60': 'cross-SMA 20-60'
+    }
+
+    def __init__(self, strategy_id: str, strategy_name: Optional[str] = None):
+        self.strategy_id = strategy_id
+        if strategy_name is None:
+            self.strategy_name = Strategy._all_cases[strategy_id]
+        else:
+            self.strategy_name = strategy_name
+
+    @classmethod
+    def sma_50_200(cls) -> object:
+        return Strategy(strategy_id='sma_50_200')
+
+    @classmethod
+    def sma_30_90(cls) -> object:
+        return Strategy(strategy_id='sma_30_90')
+
+    @classmethod
+    def sma_20_60(cls) -> object:
+        return Strategy(strategy_id='sma_20_60')
+
+    @classmethod
+    def rsi(cls) -> object:
+        return Strategy(strategy_id='rsi')
+
+    @classmethod
+    def all(cls) -> List[object]:
+        return [cls.rsi(), cls.sma_50_200(), cls.sma_30_90(), cls.sma_20_60()]
+
+    @classmethod
+    def name(cls, strategy_id: str) -> str:
+        return cls._all_cases[strategy_id]
+
+    def description(self) -> str:
+        if self.strategy_id.startswith('sma_50_200'):
+            return sma_50_200_is_chosen
+        elif self.strategy_id.startswith('sma_30_90'):
+            return sma_30_90_is_chosen
+        elif self.strategy_id.startswith('sma_20_60'):
+            return sma_20_60_is_chosen
+        elif self.strategy_id.startswith('rsi'):
+            return rsi_is_chosen
 
 
 def _now() -> datetime:
@@ -16,7 +69,6 @@ def _now() -> datetime:
 def is_time_to_download_data() -> bool:
     """Проверяет, подходит ли время для объемной загрузки исторических данных"""
     value = time(hour=7) < _now().time() < time(hour=10)
-    # print(value)  # log can affect memory
     return value
 
 
@@ -34,6 +86,10 @@ def market_is_closed() -> bool:
 
 def wait_until_download_time() -> None:
     """Помогает остановить поток до тех пор, пока не настанет время обновить исторические данные"""
+
+    hours_7 = 25201  # seconds
+    hours_24 = 86400  # seconds
+    hours_48 = 172800  # seconds
 
     hours_now_in_seconds = _now().hour * 3600
     minutes_now_in_seconds = _now().minute * 60
@@ -153,23 +209,22 @@ def save_signal_to_df(buy_flag: int,
     return [df, df_actual_signals]
 
 
-def historic_data_is_actual(df: DataFrame) -> bool:
-    """Позволяет убедиться, что данные в DataFrame актуальны"""
+def historic_data_is_actual(cls) -> bool:
+    """Позволяет убедиться, что данные в БД актуальны"""
 
-    if type(df.index) == DatetimeIndex:  # проверка является ли DataFrame's index датой и временем
-        df_date = df.index.max().date()
-    else:
-        df_date = df.datetime.max().date()
+    date_time = cls.get_last_datetime_by_figi()
     market_hour = _now().date() + td(hours=1, minutes=45)
     return (
-            df_date + td(days=1) >= _now().date() + td(hours=1, minutes=45) or
-            _now().isoweekday() == 7 and df_date + td(days=2) >= market_hour or
-            _now().isoweekday() == 1 and df_date + td(days=3) >= market_hour or
-            _now().isoweekday() == 2 and df_date + td(days=4) >= market_hour and time() < _now().time() < time(hour=7)
+            date_time + td(days=1) >= _now().date() + td(hours=1, minutes=45) or
+            _now().isoweekday() == 7 and date_time + td(days=2) >= market_hour or
+            _now().isoweekday() == 1 and date_time + td(days=3) >= market_hour or
+            _now().isoweekday() == 2 and date_time + td(days=4) >= market_hour and time() < _now().time() < time(hour=7)
     )
 
 
 def get_n_digits(number):
+    """Помогает определить количество знаков после точки в number"""
+
     s = str(number)
     if '.' in s:
         return abs(s.find('.') - len(s)) - 1
@@ -178,6 +233,8 @@ def get_n_digits(number):
 
 
 def convert_string_price_into_int_or_float(price: str) -> float or int:
+    """Помогает конвертировать str в int или float"""
+
     n_digits = get_n_digits(price)
     if float(price) // 1 == float(price):
         price = int(float(price))
@@ -188,12 +245,9 @@ def convert_string_price_into_int_or_float(price: str) -> float or int:
     return price
 
 
-hours_7 = 25201  # seconds
-hours_24 = 86400  # seconds
-hours_48 = 172800  # seconds
-
-
 class Limit(object):
+    """Добавить описание декоратора"""  # TODO Добавить описание декоратора
+
     def __init__(self, calls=5, period=1):
         self.calls = calls
         self.period = period
@@ -204,7 +258,7 @@ class Limit(object):
     def __call__(self, func):
         async def wrapper(*args, **kwargs):
             if self.num_of_calls >= self.calls:
-                await asyncio.sleep(self.__remaining_period())
+                await asyncsleep(self.__remaining_period())
 
             remaining_period = self.__remaining_period()
 
@@ -236,3 +290,19 @@ def retry_with_timeout(timeout):
                     Event().wait(timeout=timeout)
         return _wrapper
     return retry_decorator
+
+
+# TODO мб удалить при отстутсвии необходимости
+def timer(func):
+    """Декоратор считает сколько времени затрачено на функцию"""
+
+    @functools.wraps(func)
+    def _wrapper(*args, **kwargs):
+        start = perf_counter()
+        result = func(*args, **kwargs)
+        runtime = perf_counter() - start
+        if result is None:
+            return runtime
+        else:
+            return runtime, result
+    return _wrapper

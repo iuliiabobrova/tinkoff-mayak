@@ -66,7 +66,7 @@ def download_historic_candles(figi_list: List) -> None:
         last_date = HistoricCandle.get_last_datetime_by_figi(figi=figi) or datetime(year=2012, month=1, day=1)
         passed_days = (_now() - last_date).days
         if passed_days == 0 or passed_days > max_days_available_by_api:  # проверка: не запрашиваем ли существующие в CSV данные
-            continue
+            continue  # TODO or -> отдельная логика с дилеем на 0.200 секунды, а с дилеем 3 секунды
 
         await download_candles_by_figi(figi=figi, days=passed_days)
 
@@ -74,11 +74,9 @@ def download_historic_candles(figi_list: List) -> None:
 
 
 # проверка sma на актуальность
-def recalc_sma_if_inactual(df_close_prices: DataFrame,
-                           figi_list: List,
-                           sma_periods: SMACrossPeriods):
-    if not historic_data_is_actual(MovingAverage.objects.filter(name='date_time')):  # TODO ref
-        calc_sma(df_close_prices=df_close_prices, figi_list=figi_list, sma_periods=sma_periods)
+def recalc_sma_if_inactual(sma_periods: SMACrossPeriods):
+    if not historic_data_is_actual(MovingAverage.objects.filter(name='date_time')):  # TODO check parameter
+        calc_sma(sma_periods=sma_periods)
 
 
 # проверка sma-signals на актуальность

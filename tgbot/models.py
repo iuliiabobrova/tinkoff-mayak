@@ -237,8 +237,8 @@ class HistoricCandle(models.Model):
         )
 
     @classmethod
-    def get_candles_by_figi(cls, figi: str) -> List[HistoricCandle]:
-        return list(cls.objects.filter(figi=figi))
+    def get_candles_by_figi(cls, figi: str) -> HistoricCandle:
+        return cls.objects.filter(figi=figi)
 
     @classmethod
     def get_last_datetime_by_figi(cls, figi: str) -> Optional[datetime]:
