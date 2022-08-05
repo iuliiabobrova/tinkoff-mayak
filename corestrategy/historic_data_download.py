@@ -67,11 +67,8 @@ def download_historic_candles(figi_list: List) -> None:
         if last_date is None:
             last_date = datetime(year=2012, month=1, day=1)
         days_have_passed = (_now() - last_date).days
-        if days_have_passed == 0:  # проверка: не запрашиваем ли существующие в CSV данные
+        if days_have_passed == 0 or days_have_passed > max_days_available_by_api:  # проверка: не запрашиваем ли существующие в CSV данные
             continue
-
-        if days_have_passed > max_days_available_by_api:
-            break
 
         await download_candles_by_figi(figi=figi, days=days_have_passed)
 
