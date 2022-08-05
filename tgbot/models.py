@@ -225,7 +225,7 @@ class HistoricCandle(models.Model):
             month=candle.time.month,
             day=candle.time.day
         )
-        cls.objects.create(
+        cls.objects.update_or_create(
             open_price=quotation_to_decimal(candle.open),
             close_price=quotation_to_decimal(candle.close),
             high_price=quotation_to_decimal(candle.high),
@@ -284,7 +284,7 @@ class Share(models.Model):
 
     @classmethod
     def create(cls, share: schemas.Share):
-        cls.objects.create(
+        cls.objects.update_or_create(
             uid=share.uid,
             figi=share.figi,
             ticker=share.ticker,
@@ -335,7 +335,7 @@ class MovingAverage(models.Model):
 
     @classmethod
     def create(cls, value: float, figi: str, date_time: datetime, window: int):
-        cls.objects.create(
+        cls.objects.get_or_create(
             value=value,
             figi=figi,
             date_time=date_time,

@@ -56,7 +56,7 @@ def download_candles_by_figi(
             HistoricCandle.create(candle=candle, figi=figi, interval='day')
 
 
-def download_historic_candles(figi_list: List) -> None:
+async def download_historic_candles(figi_list: List):
     """Позволяет загрузить исторические свечи из АПИ в БД"""
 
     max_days_available_by_api = 366
