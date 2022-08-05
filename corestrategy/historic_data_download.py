@@ -63,30 +63,22 @@ def download_historic_candles(figi_list: List) -> None:
 
     print('⏩Downloading historic candles')
     for figi in figi_list:
-        last_date = HistoricCandle.get_last_datetime_by_figi(figi=figi)
-        if last_date is None:
-            last_date = datetime(year=2012, month=1, day=1)
-        days_have_passed = (_now() - last_date).days
-        if days_have_passed == 0 or days_have_passed > max_days_available_by_api:  # проверка: не запрашиваем ли существующие в CSV данные
+        last_date = HistoricCandle.get_last_datetime_by_figi(figi=figi) or datetime(year=2012, month=1, day=1)
+        passed_days = (_now() - last_date).days
+        if passed_days == 0 or passed_days > max_days_available_by_api:  # проверка: не запрашиваем ли существующие в CSV данные
             continue
 
-        await download_candles_by_figi(figi=figi, days=days_have_passed)
+        await download_candles_by_figi(figi=figi, days=passed_days)
 
     print('✅Successfully downloaded and saved historic candles')
 
 
 # проверка sma на актуальность
-def get_or_calc_sma(df_close_prices: DataFrame,
-                    figi_list: List,
-                    sma_periods: SMACrossPeriods):
-        if historic_data_is_actual(MovingAverage.objects.filter(name='date_time')):  # TODO ref
-            pass
-        else:
-            calc_sma(
-                df_close_prices=df_close_prices,
-                figi_list=figi_list,
-                sma_periods=sma_periods,
-            )
+def recalc_sma_if_inactual(df_close_prices: DataFrame,
+                           figi_list: List,
+                           sma_periods: SMACrossPeriods):
+    if not historic_data_is_actual(MovingAverage.objects.filter(name='date_time')):  # TODO ref
+        calc_sma(df_close_prices=df_close_prices, figi_list=figi_list, sma_periods=sma_periods)
 
 
 # проверка sma-signals на актуальность
@@ -135,17 +127,17 @@ def update_data() -> List:
     if not historic_data_is_actual(Share):
         download_historic_candles(figi_list=Share.get_figi_list())
 
-    df_sma_50_200 = get_or_calc_sma(
+    df_sma_50_200 = recalc_sma_if_inactual(
         df_close_prices=df_close_prices,
         figi_list=Share.get_figi_list(),
         sma_periods=sma_cross_periods_50_200
     )
-    df_sma_30_90 = get_or_calc_sma(
+    df_sma_30_90 = recalc_sma_if_inactual(
         df_close_prices=df_close_prices,
         figi_list=Share.get_figi_list(),
         sma_periods=sma_cross_periods_30_90
     )
-    df_sma_20_60 = get_or_calc_sma(
+    df_sma_20_60 = recalc_sma_if_inactual(
         df_close_prices=df_close_prices,
         figi_list=Share.get_figi_list(),
         sma_periods=sma_cross_periods_20_60
@@ -207,8 +199,8 @@ def update_data() -> List:
     print('✅All data is actual')
 
     return [
-            df_historic_signals_sma_list,
-            df_historic_signals_rsi,
-            df_sma_list,
-            df_rsi
+        df_historic_signals_sma_list,
+        df_historic_signals_rsi,
+        df_sma_list,
+        df_rsi
     ]

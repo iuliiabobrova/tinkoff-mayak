@@ -28,7 +28,7 @@ def calc_std(df_close_prices: DataFrame,
     return df_price_std
 
 
-def calc_sma(sma_periods: SMACrossPeriods) -> None:
+def calc_sma(sma_periods: SMACrossPeriods):
     """Считает SMA"""
 
     print('⏩Start calculating SMA-float')
