@@ -221,3 +221,18 @@ class Limit(object):
     def __remaining_period(self):
         elapsed = self.clock() - self.last_reset
         return self.period - elapsed
+
+
+def retry_with_timeout(timeout):
+    """Декоратор помогает рекурсивно вызывать функцию в случае ошибки с паузой в timeout-секунд"""
+
+    def retry_decorator(func):
+        def _wrapper(*args, **kwargs):
+            while True:
+                try:
+                    return func(*args, **kwargs)
+                except Exception as e:
+                    print(e)
+                    Event().wait(timeout=timeout)
+        return _wrapper
+    return retry_decorator
