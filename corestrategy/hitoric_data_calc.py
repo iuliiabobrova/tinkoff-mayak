@@ -10,10 +10,11 @@ from corestrategy.settings import (
     upper_rsi_percentile
 )
 from corestrategy.utils import save_signal_to_df
+from tgbot.models import Share, HistoricCandle
 
 
 def calc_std(df_close_prices: DataFrame,
-             figi_list: List) -> DataFrame:
+             figi_list: List) -> DataFrame:  # TODO refactor на БД
     """Считает стандартное отклонение"""
 
     df_price_std = DataFrame()  # пустой DF
@@ -27,19 +28,13 @@ def calc_std(df_close_prices: DataFrame,
     return df_price_std
 
 
-def calc_sma(df_close_prices: DataFrame,
-             figi_list: List,
-             sma_periods: SMACrossPeriods,
-             csv_path: str) -> DataFrame:
+def calc_sma(sma_periods: SMACrossPeriods) -> None:
     """Считает SMA"""
 
-    df_sma_final = DataFrame()  # пустой DF
-    df_sma2 = DataFrame()  # пустой DF
-
     print('⏩Start calculating SMA-float')
-    for figi in figi_list:
+    for figi in Share.get_figi_list():
         try:
-            df = df_close_prices[figi].dropna()  # получаем для каждого figi его Series с close_prices
+            HistoricCandle.get_candles_by_figi(figi=figi)
 
             # скользящие средние за короткий период
             df_sma_short = df.rolling(sma_periods.short - 1).mean().dropna().round(3)
@@ -50,25 +45,11 @@ def calc_sma(df_close_prices: DataFrame,
             df_ma = concat([df_sma_short, df_sma_long], axis=1, copy=False)
             # именуем столбцы корректно
             df_ma.columns = [f'{figi}.short', f'{figi}.long']
-            # добавляем данные к итоговому DataFrame df_sma_final
-            df_sma_final = merge(
-                left=df_sma2,
-                right=df_ma,
-                left_index=True,
-                right_index=True,
-                how='outer'
-            )
-            # сохраняем итоговый DF в переменную, чтобы можно было добавить данные следующим циклом
-            df_sma2 = df_sma_final
 
         except KeyError:
             print('No data to calc. Figi:', figi)
 
-    df_sma_final.sort_index()
-    df_sma_final.to_csv(path_or_buf=csv_path, sep=';')
     print('✅Calc of SMA done')
-
-    return df_sma_final
 
 
 def historic_sma_cross(historic_short_sma: float,

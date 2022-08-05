@@ -2,7 +2,8 @@ from telegram import Update
 from telegram.ext import CallbackContext
 
 from tgbot import static_text
-from tgbot.models import User, Command, Strategy
+from tgbot.models import User, Command
+from corestrategy.utils import Strategy
 from tgbot.handlers.strategies.keyboards import make_keyboard_for_strategies_connect
 
 

@@ -2,8 +2,9 @@ from telegram import Update
 from telegram.ext import CallbackContext
 
 from tgbot import static_text
-from tgbot.models import User, Command, Strategy
+from tgbot.models import User, Command
 from tgbot.handlers.strategies.keyboards import make_keyboard_for_strategies_connect
+from corestrategy.utils import Strategy
 
 
 def command_start(update: Update, context: CallbackContext) -> None:

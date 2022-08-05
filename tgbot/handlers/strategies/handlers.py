@@ -3,10 +3,11 @@ from telegram import ParseMode, Update
 from telegram.ext import CallbackContext
 from time import sleep
 
-from tgbot.models import User, Command, Strategy
+from tgbot.models import User, Command
 from tgbot import static_text
 from tgbot.handlers.strategies.utils import get_last_signals
 from tgbot.handlers.strategies.keyboards import make_keyboard_for_signal
+from corestrategy.utils import Strategy
 
 
 def strategy_connect(update: Update, context: CallbackContext) -> None:

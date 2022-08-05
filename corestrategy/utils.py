@@ -2,15 +2,69 @@ from datetime import time, datetime
 from datetime import timedelta as td
 from threading import Event
 from time import perf_counter
-from typing import List
+from typing import List, Optional
+import functools
 
-from pandas import DataFrame, concat, DatetimeIndex
+from pandas import DataFrame, concat
 
 from corestrategy.settings import columns_rsi, columns_sma
+from tgbot.static_text import (
+    sma_50_200_is_chosen, rsi_is_chosen, sma_30_90_is_chosen, sma_20_60_is_chosen
+)
 
 
 def _now() -> datetime:
     return datetime.utcnow() + td(hours=3)
+
+
+class Strategy:
+    _all_cases = {
+        'rsi': 'RSI',
+        'sma_50_200': 'cross-SMA 50-200',
+        'sma_30_90': 'cross-SMA 30-90',
+        'sma_20_60': 'cross-SMA 20-60'
+    }
+
+    def __init__(self, strategy_id: str, strategy_name: Optional[str] = None):
+        self.strategy_id = strategy_id
+        if strategy_name is None:
+            self.strategy_name = Strategy._all_cases[strategy_id]
+        else:
+            self.strategy_name = strategy_name
+
+    @classmethod
+    def sma_50_200(cls) -> object:
+        return Strategy(strategy_id='sma_50_200')
+
+    @classmethod
+    def sma_30_90(cls) -> object:
+        return Strategy(strategy_id='sma_30_90')
+
+    @classmethod
+    def sma_20_60(cls) -> object:
+        return Strategy(strategy_id='sma_20_60')
+
+    @classmethod
+    def rsi(cls) -> object:
+        return Strategy(strategy_id='rsi')
+
+    @classmethod
+    def all(cls) -> List[object]:
+        return [cls.rsi(), cls.sma_50_200(), cls.sma_30_90(), cls.sma_20_60()]
+
+    @classmethod
+    def name(cls, strategy_id: str) -> str:
+        return cls._all_cases[strategy_id]
+
+    def description(self) -> str:
+        if self.strategy_id.startswith('sma_50_200'):
+            return sma_50_200_is_chosen
+        elif self.strategy_id.startswith('sma_30_90'):
+            return sma_30_90_is_chosen
+        elif self.strategy_id.startswith('sma_20_60'):
+            return sma_20_60_is_chosen
+        elif self.strategy_id.startswith('rsi'):
+            return rsi_is_chosen
 
 
 def is_time_to_download_data() -> bool:
@@ -153,19 +207,16 @@ def save_signal_to_df(buy_flag: int,
     return [df, df_actual_signals]
 
 
-def historic_data_is_actual(df: DataFrame) -> bool:
+def historic_data_is_actual(cls) -> bool:
     """Позволяет убедиться, что данные в DataFrame актуальны"""
 
-    if type(df.index) == DatetimeIndex:  # проверка является ли DataFrame's index датой и временем
-        df_date = df.index.max().date()
-    else:
-        df_date = df.datetime.max().date()
+    date_time = cls.get_last_datetime_by_figi()
     market_hour = _now().date() + td(hours=1, minutes=45)
     return (
-            df_date + td(days=1) >= _now().date() + td(hours=1, minutes=45) or
-            _now().isoweekday() == 7 and df_date + td(days=2) >= market_hour or
-            _now().isoweekday() == 1 and df_date + td(days=3) >= market_hour or
-            _now().isoweekday() == 2 and df_date + td(days=4) >= market_hour and time() < _now().time() < time(hour=7)
+            date_time + td(days=1) >= _now().date() + td(hours=1, minutes=45) or
+            _now().isoweekday() == 7 and date_time + td(days=2) >= market_hour or
+            _now().isoweekday() == 1 and date_time + td(days=3) >= market_hour or
+            _now().isoweekday() == 2 and date_time + td(days=4) >= market_hour and time() < _now().time() < time(hour=7)
     )
 
 
@@ -188,15 +239,34 @@ def convert_string_price_into_int_or_float(price: str) -> float or int:
     return price
 
 
-def func_duration(func):
-    def wrapper():
-        func_start_time = perf_counter()
-        func()
-        func_stop_time = perf_counter()
-        return func_stop_time - func_start_time
+def timer(func):
+    """Декоратор считает сколько времени затрачено на функцию"""
 
-    return wrapper
+    @functools.wraps(func)
+    def _wrapper(*args, **kwargs):
+        start = perf_counter()
+        result = func(*args, **kwargs)
+        runtime = perf_counter() - start
+        if result is None:
+            return runtime
+        else:
+            return runtime, result
+    return _wrapper
 
+
+def retry_with_timeout(timeout):
+    """Декоратор помогает рекурсивно вызывать функцию в случае ошибки с паузой в timeout-секунд"""
+
+    def retry_decorator(func):
+        def _wrapper(*args, **kwargs):
+            while True:
+                try:
+                    return func(*args, **kwargs)
+                except Exception as e:
+                    print(e)
+                    Event().wait(timeout=timeout)
+        return _wrapper
+    return retry_decorator
 
 
 hours_7 = 25201  # seconds

@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from datetime import datetime
-from decimal import Decimal
 from typing import Union, Optional, Tuple, List
 
 import tinkoff.invest.schemas as schemas
@@ -10,13 +9,10 @@ from django.db.models import QuerySet, Manager
 from numpy import number
 from telegram import Update
 from telegram.ext import CallbackContext
-from tinkoff.invest import Share
 from tinkoff.invest.utils import quotation_to_decimal
 
 from dtb.settings import DEBUG
-from tgbot.static_text import (
-    sma_50_200_is_chosen, rsi_is_chosen, sma_30_90_is_chosen, sma_20_60_is_chosen
-)
+
 from tgbot.handlers.utils.info import extract_user_data_from_update
 from utils.models import CreateUpdateTracker, nb, CreateTracker, GetOrNoneManager
 
@@ -24,56 +20,6 @@ from utils.models import CreateUpdateTracker, nb, CreateTracker, GetOrNoneManage
 class AdminUserManager(Manager):
     def get_queryset(self):
         return super().get_queryset().filter(is_admin=True)
-
-
-class Strategy(CreateTracker):
-    _all_cases = {
-        'rsi': 'RSI',
-        'sma_50_200': 'cross-SMA 50-200',
-        'sma_30_90': 'cross-SMA 30-90',
-        'sma_20_60': 'cross-SMA 20-60'
-    }
-
-    def __init__(self, strategy_id: str, strategy_name: Optional[str] = None):
-        self.strategy_id = strategy_id
-        if strategy_name is None:
-            self.strategy_name = Strategy._all_cases[strategy_id]
-        else:
-            self.strategy_name = strategy_name
-
-    @classmethod
-    def sma_50_200(cls) -> Strategy:
-        return Strategy(strategy_id='sma_50_200')
-
-    @classmethod
-    def sma_30_90(cls) -> Strategy:
-        return Strategy(strategy_id='sma_30_90')
-
-    @classmethod
-    def sma_20_60(cls) -> Strategy:
-        return Strategy(strategy_id='sma_20_60')
-
-    @classmethod
-    def rsi(cls) -> Strategy:
-        return Strategy(strategy_id='rsi')
-
-    @classmethod
-    def all(cls) -> List[Strategy]:
-        return [cls.rsi(), cls.sma_50_200(), cls.sma_30_90(), cls.sma_20_60()]
-
-    @classmethod
-    def name(cls, strategy_id: str) -> str:
-        return cls._all_cases[strategy_id]
-
-    def description(self) -> str:
-        if self.strategy_id.startswith('sma_50_200'):
-            return sma_50_200_is_chosen
-        elif self.strategy_id.startswith('sma_30_90'):
-            return sma_30_90_is_chosen
-        elif self.strategy_id.startswith('sma_20_60'):
-            return sma_20_60_is_chosen
-        elif self.strategy_id.startswith('rsi'):
-            return rsi_is_chosen
 
 
 class Subscription(CreateTracker):
@@ -262,16 +208,18 @@ class Location(CreateTracker):
 
 
 class HistoricCandle(models.Model):
-    open_price = models.DecimalField()
-    high_price = models.DecimalField()
-    low_price = models.DecimalField()
-    close_price = models.DecimalField()
+    id = models.BigAutoField(primary_key=True)
+    open_price = models.DecimalField(max_digits=32, decimal_places=16)
+    high_price = models.DecimalField(max_digits=32, decimal_places=16)
+    low_price = models.DecimalField(max_digits=32, decimal_places=16)
+    close_price = models.DecimalField(max_digits=32, decimal_places=16)
     volume = models.IntegerField()
     date_time = models.DateTimeField()
     figi = models.CharField(max_length=32, **nb)
+    interval = models.CharField(max_length=32, **nb)
 
     @classmethod
-    def create(cls, candle: schemas.HistoricCandle, figi: str) -> None:
+    def create(cls, candle: schemas.HistoricCandle, figi: str, interval: str) -> None:
         date_time = datetime(
             year=candle.time.year,
             month=candle.time.month,
@@ -284,7 +232,8 @@ class HistoricCandle(models.Model):
             low_price=quotation_to_decimal(candle.low),
             volume=candle.volume,
             date_time=date_time,
-            figi=figi
+            figi=figi,
+            interval=interval
         )
 
     @classmethod
@@ -293,43 +242,49 @@ class HistoricCandle(models.Model):
 
     @classmethod
     def get_last_datetime_by_figi(cls, figi: str) -> Optional[datetime]:
-        return max(map(lambda candle: candle.date_time, cls.get_candles_by_figi(figi=figi)))
+        return max(cls.objects.filter(figi=figi).values_list('date_time'))
 
 
 class Share(models.Model):
-    figi: models.CharField(max_length=32, **nb)
-    ticker: models.CharField(max_length=32, **nb)
-    class_code: models.CharField(max_length=32, **nb)
-    isin: models.CharField(max_length=32, **nb)
-    lot: models.IntegerField(default=1)
-    currency: models.CharField(max_length=32, **nb)
-    klong: models.DecimalField()
-    kshort: models.DecimalField()
-    dlong: models.DecimalField()
-    dshort: models.DecimalField()
-    dlong_min: models.DecimalField()
-    dshort_min: models.DecimalField()
-    short_enabled_flag: models.BooleanField(default=False)
-    name: models.CharField(max_length=32, **nb)
-    exchange: models.CharField(max_length=32, **nb)
-    ipo_date: models.DateTimeField()
-    issue_size: models.IntegerField()
-    country_of_risk: models.CharField(max_length=32, **nb)
-    country_of_risk_name: models.CharField(max_length=32, **nb)
-    sector: models.CharField(max_length=32, **nb)
-    issue_size_plan: models.IntegerField()
-    trading_status: models.IntegerField()
-    otc_flag: models.BooleanField(default=False)
-    buy_available_flag: models.BooleanField(default=False)
-    sell_available_flag: models.BooleanField(default=False)
-    div_yield_flag: models.BooleanField(default=False)
-    share_type: models.IntegerField()
-    min_price_increment: models.DecimalField()
-    api_trade_available_flag: models.BooleanField(default=False)
+    uid = models.CharField(max_length=32, null=False, primary_key=True)
+    figi = models.CharField(max_length=32, **nb)
+    ticker = models.CharField(max_length=32, **nb)
+    class_code = models.CharField(max_length=32, **nb)
+    isin = models.CharField(max_length=32, **nb)
+    lot = models.IntegerField(default=1)
+    currency = models.CharField(max_length=32, **nb)
+    klong = models.DecimalField(max_digits=32, decimal_places=16)
+    kshort = models.DecimalField(max_digits=32, decimal_places=16)
+    dlong = models.DecimalField(max_digits=32, decimal_places=16)
+    dshort = models.DecimalField(max_digits=32, decimal_places=16)
+    dlong_min = models.DecimalField(max_digits=32, decimal_places=16)
+    dshort_min = models.DecimalField(max_digits=32, decimal_places=16)
+    short_enabled_flag = models.BooleanField(default=False)
+    name = models.CharField(max_length=32, **nb)
+    exchange = models.CharField(max_length=32, **nb)
+    ipo_date = models.DateTimeField()
+    issue_size = models.IntegerField()
+    country_of_risk = models.CharField(max_length=32, **nb)
+    country_of_risk_name = models.CharField(max_length=32, **nb)
+    sector = models.CharField(max_length=32, **nb)
+    issue_size_plan = models.IntegerField()
+    trading_status = models.IntegerField()
+    otc_flag = models.BooleanField(default=False)
+    buy_available_flag = models.BooleanField(default=False)
+    sell_available_flag = models.BooleanField(default=False)
+    div_yield_flag = models.BooleanField(default=False)
+    share_type = models.IntegerField()
+    min_price_increment = models.DecimalField(max_digits=32, decimal_places=16)
+    api_trade_available_flag = models.BooleanField(default=False)
+    position_uid = models.CharField(max_length=32, **nb)
+    for_iis_flag = models.BooleanField(default=False)
+    first_1min_candle_date = models.DateTimeField()
+    first_1day_candle_date = models.DateTimeField()
 
     @classmethod
     def create(cls, share: schemas.Share):
         cls.objects.create(
+            uid=share.uid,
             figi=share.figi,
             ticker=share.ticker,
             class_code=share.class_code,
@@ -359,4 +314,25 @@ class Share(models.Model):
             share_type=share.share_type,
             min_price_increment=share.min_price_increment,
             api_trade_available_flag=share.api_trade_available_flag
+        )
+
+    @classmethod
+    def get_figi_list(cls):
+        return list(cls.objects.filter(name='figi'))
+
+
+class MovingAverage(models.Model):
+    id = models.BigAutoField(primary_key=True)
+    value = models.FloatField()  # TODO may be models.DecimalField(max_digits=32, decimal_places=16)
+    figi = models.CharField(max_length=32, **nb)
+    date_time = models.DateTimeField()
+    window = models.IntegerField()
+
+    @classmethod
+    def create(cls, value: float, figi: str, date_time: datetime, window: int):
+        cls.objects.create(
+            value=value,
+            figi=figi,
+            date_time=date_time,
+            window=window
         )

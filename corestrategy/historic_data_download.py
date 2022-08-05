@@ -4,71 +4,56 @@
 
 from os.path import exists, getmtime
 from typing import List
-from time import perf_counter
 from threading import Event
 
 from pandas import DataFrame, read_csv, to_datetime
 from datetime import datetime, timedelta
 from tinkoff.invest import Client, CandleInterval
-from tinkoff.invest.utils import quotation_to_decimal
 
 from dtb.settings import INVEST_TOKEN
 from corestrategy.hitoric_data_calc import calc_historic_signals_sma, calc_sma, save_historic_signals_rsi
 from corestrategy.settings import *
-from corestrategy.utils import historic_data_is_actual, _now
-from tgbot.models import HistoricCandle, Share
+from corestrategy.utils import historic_data_is_actual, _now, timer, retry_with_timeout
+from tgbot.models import HistoricCandle, Share, MovingAverage
 
 
+@retry_with_timeout(60)
 def download_shares() -> None:
     """Позволяет получить из API список всех акций и их параметров"""
 
-    try:
-        with Client(INVEST_TOKEN) as client:
-            for share in client.instruments.shares():
-                Share.create(share=share)
+    with Client(INVEST_TOKEN) as client:
+        for share in client.instruments.shares().instruments:
+            Share.create(share=share)
 
-        print('✅Downloaded list of shares')
-
-    except Exception as e:
-        print('No internet connection? Reconnecting in 60 sec:')
-        print(e)
-        Event().wait(60)
-        download_shares()
+    print('✅Downloaded list of shares')
 
 
-def download_candles_by_figi(figi: str, days: int, **kwargs) -> float:
-    """Запрашивает все ОТСУТСТВУЮЩИЕ свечи по ОДНОМУ str(figi)
-    Сохраняет данные в df."""
+@timer
+@retry_with_timeout(60)
+def download_candles_by_figi(
+        figi: str,
+        days: int,
+        interval: CandleInterval = CandleInterval.CANDLE_INTERVAL_DAY):
+    """Запрашивает все ОТСУТСТВУЮЩИЕ свечи по ОДНОМУ str(figi)"""
 
-    try:
+    now_date = _now() - timedelta(
+        hours=_now().hour - 5,  # TODO почему 5 ?
+        minutes=_now().minute,
+        seconds=_now().second,
+        microseconds=_now().microsecond
+    )
+    date_from = now_date - timedelta(days=days) + timedelta(days=1)
+    date_to = _now() + timedelta(days=1)  # TODO refactor
 
-        now_date = _now() - timedelta(
-            hours=_now().hour - 5,  # TODO почему 5 ?
-            minutes=_now().minute,
-            seconds=_now().second,
-            microseconds=_now().microsecond
+    with Client(INVEST_TOKEN) as client:
+        candles = client.get_all_candles(
+            figi=figi,  # сюда должен поступать только один figi (id акции)
+            from_=date_from,  # период времени определяется динамически
+            to=date_to,
+            interval=interval,  # запрашиваемая размерность свеч (дневная)
         )
-        date_from = now_date - timedelta(days=days) + timedelta(days=1)
-        date_to = _now() + timedelta(days=1)  # TODO refactor
-
-        with Client(INVEST_TOKEN) as client:
-            candles = client.get_all_candles(
-                figi=figi,  # сюда должен поступать только один figi (id акции)
-                from_=date_from,  # период времени определяется динамически
-                to=date_to,
-                interval=CandleInterval.CANDLE_INTERVAL_DAY,  # запрашиваемая размерность свеч (дневная)
-            )
-            for candle in candles:
-                HistoricCandle.create(candle=candle, figi=figi)
-
-
-
-    except Exception as e:
-        print(e)
-        Event().wait(60)
-        func_duration = download_candles_by_figi(figi=figi, days=days)
-
-    return func_duration
+        for candle in candles:
+            HistoricCandle.create(candle=candle, figi=figi, interval='day')
 
 
 def download_historic_candles(figi_list: List) -> None:
@@ -82,29 +67,18 @@ def download_historic_candles(figi_list: List) -> None:
         last_date = HistoricCandle.get_last_datetime_by_figi(figi=figi)
         if last_date is None:
             last_date = datetime(year=2012, month=1, day=1)
-        days = (_now() - last_date).days
-
-        if days == 0:  # проверка: не запрашиваем ли существующие в CSV данные
+        days_have_passed = (_now() - last_date).days
+        if days_have_passed == 0:  # проверка: не запрашиваем ли существующие в CSV данные
             continue
 
-        func_start_time = 0
-        func_stop_time = 0
-
-        def on_start():
-            func_start_time = perf_counter()
-
-        def on_finish():
-            func_stop_time = perf_counter()
-
-        download_candles_by_figi(figi=figi, days=days, on_start=on_start, on_finish=on_finish)
-        duration = func_stop_time - func_start_time
-
-        if days <= max_days_available_by_api:
+        download_duration = download_candles_by_figi(figi=figi, days=days_have_passed)
+        if days_have_passed <= max_days_available_by_api:
             if download_duration < min_request_duration_in_seconds:
-                Event().wait(
-                    min_request_duration_in_seconds - download_duration)  # API позволяет делать не более 300 запросов в минуту
+                Event().wait(min_request_duration_in_seconds - download_duration)
         elif download_duration < 3:
             Event().wait(3 - download_duration)
+        else:
+            continue
 
     print('✅Successfully downloaded and saved historic candles')
 
@@ -112,33 +86,15 @@ def download_historic_candles(figi_list: List) -> None:
 # проверка sma на актуальность
 def get_or_calc_sma(df_close_prices: DataFrame,
                     figi_list: List,
-                    sma_periods: SMACrossPeriods) -> DataFrame:
-    file_path = f'csv/sma_{sma_periods.short}_{sma_periods.long}.csv'
-    if exists(path=file_path):
-        df = read_csv(
-            filepath_or_buffer=file_path,
-            sep=';',
-            index_col=0,
-            parse_dates=[0]
-        )
-        if historic_data_is_actual(df=df):
-            df_sma = df
+                    sma_periods: SMACrossPeriods):
+        if historic_data_is_actual(MovingAverage.objects.filter(name='date_time')):  # TODO ref
+            pass
         else:
-            df_sma = calc_sma(
+            calc_sma(
                 df_close_prices=df_close_prices,
                 figi_list=figi_list,
                 sma_periods=sma_periods,
-                csv_path=file_path
             )
-    else:
-        df_sma = calc_sma(
-            df_close_prices=df_close_prices,
-            figi_list=figi_list,
-            sma_periods=sma_periods,
-            csv_path=file_path
-        )
-
-    return df_sma
 
 
 # проверка sma-signals на актуальность
@@ -181,74 +137,25 @@ def get_or_calc_sma_historic_signals(df_close_prices: DataFrame,
 def update_data() -> List:
     """Функция вмещает в себя все функции выше.
     Задаёт условия, когда необходимо подгружать и рассчитывать исторические данные, а когда нет"""
-
-    [figi_list, df_shares] = get_shares_list_to_csv()
-
     print('⏩START DATA CHECK. It can take 2 hours')
 
-    # проверка close_prices на актуальность
-    if exists(path='csv/historic_close_prices.csv') and exists(path='csv/historic_volumes.csv'):
-        df_close_prices = read_csv(
-            filepath_or_buffer='csv/historic_close_prices.csv',
-            sep=';',
-            index_col=0,
-            parse_dates=[0],
-            dtype=float
-        )
-
-        if not historic_data_is_actual(df=df_close_prices):
-            df_volumes = read_csv(
-                filepath_or_buffer='csv/historic_volumes.csv',
-                sep=';',
-                index_col=0,
-                parse_dates=[0],
-                dtype=float
-            )
-            [df_close_prices, df_volumes] = download_historic_candles(
-                df_fin_close_prices=df_close_prices,
-                df_fin_volumes=df_volumes,
-                figi_list=figi_list
-            )
-    else:
-        if exists(path='csv/historic_close_prices.csv'):
-            df_close_prices = read_csv(
-                filepath_or_buffer='csv/historic_close_prices.csv',
-                sep=';',
-                index_col=0,
-                parse_dates=[0],
-                dtype=float
-            )
-        else:
-            df_close_prices = DataFrame()  # пустой DF, если файла нет
-        if exists(path='csv/historic_volumes.csv'):
-            df_volumes = read_csv(
-                filepath_or_buffer='csv/historic_volumes.csv',
-                sep=';',
-                index_col=0,
-                parse_dates=[0],
-                dtype=float
-            )
-        else:
-            df_volumes = DataFrame()  # пустой DF, если файла нет
-        [df_close_prices, df_volumes] = update_2_csv_with_historic_candles(
-            df_fin_close_prices=df_close_prices,
-            df_fin_volumes=df_volumes,
-            figi_list=figi_list
-        )
+    download_shares()
+    if not historic_data_is_actual(Share):
+        download_historic_candles(figi_list=Share.get_figi_list())
 
     df_sma_50_200 = get_or_calc_sma(
         df_close_prices=df_close_prices,
-        figi_list=figi_list,
+        figi_list=Share.get_figi_list(),
         sma_periods=sma_cross_periods_50_200
     )
     df_sma_30_90 = get_or_calc_sma(
         df_close_prices=df_close_prices,
-        figi_list=figi_list,
+        figi_list=Share.get_figi_list(),
         sma_periods=sma_cross_periods_30_90
     )
     df_sma_20_60 = get_or_calc_sma(
         df_close_prices=df_close_prices,
-        figi_list=figi_list,
+        figi_list=Share.get_figi_list(),
         sma_periods=sma_cross_periods_20_60
     )
     df_sma_list = [df_sma_50_200, df_sma_30_90, df_sma_20_60]
@@ -256,19 +163,19 @@ def update_data() -> List:
     df_historic_signals_sma_50_200 = get_or_calc_sma_historic_signals(
         df_close_prices=df_close_prices,
         df_sma=df_sma_50_200,
-        df_shares=df_shares,
+        df_shares=Share.objects.all(),
         sma_periods=sma_cross_periods_50_200
     )
     df_historic_signals_sma_30_90 = get_or_calc_sma_historic_signals(
         df_close_prices=df_close_prices,
         df_sma=df_sma_30_90,
-        df_shares=df_shares,
+        df_shares=Share.objects.all(),
         sma_periods=sma_cross_periods_30_90
     )
     df_historic_signals_sma_20_60 = get_or_calc_sma_historic_signals(
         df_close_prices=df_close_prices,
         df_sma=df_sma_20_60,
-        df_shares=df_shares,
+        df_shares=Share.objects.all(),
         sma_periods=sma_cross_periods_20_60
     )
     df_historic_signals_sma_list = [
@@ -307,10 +214,9 @@ def update_data() -> List:
     # calc_profit(df_historic_signals_rsi=df_historic_signals_rsi)  TODO RSI-profit
     print('✅All data is actual')
 
-    return [figi_list,
-            df_shares,
-            df_close_prices,
+    return [
             df_historic_signals_sma_list,
             df_historic_signals_rsi,
             df_sma_list,
-            df_rsi]
+            df_rsi
+    ]
