@@ -36,10 +36,7 @@ class Strategy(CreateTracker):
 
     def __init__(self, strategy_id: str, strategy_name: Optional[str] = None):
         self.strategy_id = strategy_id
-        if strategy_name is None:
-            self.strategy_name = Strategy._all_cases[strategy_id]
-        else:
-            self.strategy_name = strategy_name
+        self.strategy_name = strategy_name or Strategy._all_cases[strategy_id]
 
     @classmethod
     def sma_50_200(cls) -> Strategy:

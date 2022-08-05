@@ -15,7 +15,7 @@ from tinkoff.invest.utils import quotation_to_decimal
 from dtb.settings import INVEST_TOKEN
 from corestrategy.hitoric_data_calc import calc_historic_signals_sma, calc_sma, save_historic_signals_rsi
 from corestrategy.settings import *
-from corestrategy.utils import historic_data_is_actual, _now
+from corestrategy.utils import historic_data_is_actual, _now, Limit
 from tgbot.models import HistoricCandle, Share
 
 
@@ -36,7 +36,8 @@ def download_shares() -> None:
         download_shares()
 
 
-def download_candles_by_figi(figi: str, days: int, **kwargs) -> float:
+@Limit(calls=5, period=1)
+def download_candles_by_figi(figi: str, days: int):
     """Запрашивает все ОТСУТСТВУЮЩИЕ свечи по ОДНОМУ str(figi)
     Сохраняет данные в df."""
 
@@ -75,7 +76,6 @@ def download_historic_candles(figi_list: List) -> None:
     """Позволяет загрузить исторические свечи из АПИ в БД"""
 
     max_days_available_by_api = 366
-    min_request_duration_in_seconds = 1 / 5  # 5 запросов в 1 секунду
 
     print('⏩Downloading historic candles')
     for figi in figi_list:
@@ -87,24 +87,8 @@ def download_historic_candles(figi_list: List) -> None:
         if days == 0:  # проверка: не запрашиваем ли существующие в CSV данные
             continue
 
-        func_start_time = 0
-        func_stop_time = 0
-
-        def on_start():
-            func_start_time = perf_counter()
-
-        def on_finish():
-            func_stop_time = perf_counter()
-
-        download_candles_by_figi(figi=figi, days=days, on_start=on_start, on_finish=on_finish)
-        duration = func_stop_time - func_start_time
-
         if days <= max_days_available_by_api:
-            if download_duration < min_request_duration_in_seconds:
-                Event().wait(
-                    min_request_duration_in_seconds - download_duration)  # API позволяет делать не более 300 запросов в минуту
-        elif download_duration < 3:
-            Event().wait(3 - download_duration)
+            await download_candles_by_figi(figi=figi, days=days)
 
     print('✅Successfully downloaded and saved historic candles')
 

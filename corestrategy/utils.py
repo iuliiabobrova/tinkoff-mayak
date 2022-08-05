@@ -188,17 +188,36 @@ def convert_string_price_into_int_or_float(price: str) -> float or int:
     return price
 
 
-def func_duration(func):
-    def wrapper():
-        func_start_time = perf_counter()
-        func()
-        func_stop_time = perf_counter()
-        return func_stop_time - func_start_time
-
-    return wrapper
-
-
-
 hours_7 = 25201  # seconds
 hours_24 = 86400  # seconds
 hours_48 = 172800  # seconds
+
+
+class Limit(object):
+    def __init__(self, calls=5, period=1):
+        self.calls = calls
+        self.period = period
+        self.clock = time.monotonic
+        self.last_reset = 0
+        self.num_of_calls = 0
+
+    def __call__(self, func):
+        async def wrapper(*args, **kwargs):
+            if self.num_of_calls >= self.calls:
+                await asyncio.sleep(self.__remaining_period())
+
+            remaining_period = self.__remaining_period()
+
+            if remaining_period <= 0:
+                self.num_of_calls = 0
+                self.last_reset = self.clock()
+
+            self.num_of_calls += 1
+
+            return await func(*args, **kwargs)
+
+        return wrapper
+
+    def __remaining_period(self):
+        elapsed = self.clock() - self.last_reset
+        return self.period - elapsed
