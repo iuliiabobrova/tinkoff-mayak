@@ -17,7 +17,7 @@ from corestrategy.utils import historic_data_is_actual, _now, timer, retry_with_
 from tgbot.models import HistoricCandle, Share, MovingAverage
 
 
-@retry_with_timeout(60)
+# @retry_with_timeout(60)
 def download_shares() -> None:
     """Позволяет получить из API список всех акций и их параметров"""
 
@@ -28,8 +28,8 @@ def download_shares() -> None:
     print('✅Downloaded list of shares')
 
 
-@Limit(calls=5, period=1)
-@retry_with_timeout(60)
+@Limit(calls=299, period=60)  # API позволяет запрашивать свечи не более 300 раз в минуту
+# @retry_with_timeout(60)
 def download_candles_by_figi(
         figi: str,
         days: int,
@@ -48,9 +48,9 @@ def download_candles_by_figi(
     with Client(INVEST_TOKEN) as client:
         candles = client.get_all_candles(
             figi=figi,  # сюда должен поступать только один figi (id акции)
-            from_=date_from,  # период времени определяется динамически
+            from_=date_from,  # int, кол-во дней назад
             to=date_to,
-            interval=interval,  # запрашиваемая размерность свеч (дневная)
+            interval=interval,  # запрашиваемая размерность свеч
         )
         for candle in candles:
             HistoricCandle.create(candle=candle, figi=figi, interval='day')
@@ -65,10 +65,11 @@ def download_historic_candles(figi_list: List) -> None:
     for figi in figi_list:
         last_date = HistoricCandle.get_last_datetime_by_figi(figi=figi) or datetime(year=2012, month=1, day=1)
         passed_days = (_now() - last_date).days
-        if passed_days == 0 or passed_days > max_days_available_by_api:  # проверка: не запрашиваем ли существующие в CSV данные
-            continue  # TODO or -> отдельная логика с дилеем на 0.200 секунды, а с дилеем 3 секунды
-
+        if passed_days == 0:  # проверка: не запрашиваем ли существующие в CSV данные
+            continue
         await download_candles_by_figi(figi=figi, days=passed_days)
+        if passed_days > max_days_available_by_api:
+            Event().wait(timeout=3)
 
     print('✅Successfully downloaded and saved historic candles')
 
@@ -122,7 +123,7 @@ def update_data() -> List:
     print('⏩START DATA CHECK. It can take 2 hours')
 
     download_shares()
-    if not historic_data_is_actual(Share):
+    if not historic_data_is_actual(HistoricCandle):
         download_historic_candles(figi_list=Share.get_figi_list())
 
     df_sma_50_200 = recalc_sma_if_inactual(

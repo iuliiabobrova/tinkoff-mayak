@@ -102,15 +102,11 @@ def calc_historic_signals_sma_by_figi(figi: str,
             if historic_last_price != 0:
                 historic_date = sr_long_sma.index[index_of_row]
                 df_historic_signals_sma = historic_sma_cross(
-                    historic_short_sma=historic_short_sma,
-                    historic_long_sma=historic_long_sma,
                     previous_historic_short_sma=previous_historic_short_sma,
                     previous_historic_long_sma=previous_historic_long_sma,
                     historic_last_price=historic_last_price,
                     historic_date=historic_date,
                     figi=figi,
-                    df_shares=df_shares,
-                    df_historic_signals_sma=df_historic_signals_sma,
                     strategy_id=strategy_id
                 )
     return df_historic_signals_sma
@@ -129,11 +125,7 @@ def calc_historic_signals_sma(df_close_prices: DataFrame,
         amount_of_rows = df_historic_sma[f'{figi}.long'].dropna().shape[0]
         df_historic_signals_sma = calc_historic_signals_sma_by_figi(
             figi=figi,
-            df_fin_close_prices=df_close_prices,
-            df_all_historic_sma=df_historic_sma,
             amount_of_rows=amount_of_rows,
-            df_shares=df_shares,
-            df_historic_signals_sma=df_historic_signals_sma,
             strategy_id=strategy_id
         )
 

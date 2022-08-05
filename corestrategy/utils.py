@@ -3,7 +3,7 @@ from asyncio import sleep as asyncsleep
 from datetime import time, datetime
 from datetime import timedelta as td
 from threading import Event
-from time import perf_counter
+from time import perf_counter, monotonic
 from typing import List, Optional
 
 from pandas import DataFrame, concat
@@ -212,7 +212,9 @@ def save_signal_to_df(buy_flag: int,
 def historic_data_is_actual(cls) -> bool:
     """Позволяет убедиться, что данные в БД актуальны"""
 
-    date_time = cls.get_last_datetime_by_figi()
+    date_time = cls.get_last_datetime()
+    if date_time is None:
+        return False
     market_hour = _now().date() + td(hours=1, minutes=45)
     return (
             date_time + td(days=1) >= _now().date() + td(hours=1, minutes=45) or
@@ -248,10 +250,10 @@ def convert_string_price_into_int_or_float(price: str) -> float or int:
 class Limit(object):
     """Добавить описание декоратора"""  # TODO Добавить описание декоратора
 
-    def __init__(self, calls=5, period=1):
+    def __init__(self, calls, period):
         self.calls = calls
         self.period = period
-        self.clock = time.monotonic
+        self.clock = monotonic
         self.last_reset = 0
         self.num_of_calls = 0
 

@@ -4,7 +4,6 @@ import time
 from pandas import read_csv
 from tgbot.handlers.strategies.utils import Signal
 import decimal
-from corestrategy.utils import func_duration
 
 from corestrategy.utils import Limit
 

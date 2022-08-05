@@ -237,12 +237,13 @@ class HistoricCandle(models.Model):
         )
 
     @classmethod
-    def get_candles_by_figi(cls, figi: str) -> HistoricCandle:
+    def get_candles_by_figi(cls, figi: str) -> QuerySet[HistoricCandle]:
         return cls.objects.filter(figi=figi)
 
     @classmethod
-    def get_last_datetime_by_figi(cls, figi: str) -> Optional[datetime]:
-        return max(cls.objects.filter(figi=figi).values_list('date_time'))
+    def get_last_datetime(cls, figi: str = None) -> Optional[datetime]:
+        objects = cls.objects if figi is None else cls.objects.filter(figi=figi)
+        return max(objects.values_list('date_time'), default=None)
 
 
 class Share(models.Model):
@@ -312,8 +313,12 @@ class Share(models.Model):
             sell_available_flag=share.sell_available_flag,
             div_yield_flag=share.div_yield_flag,
             share_type=share.share_type,
-            min_price_increment=share.min_price_increment,
-            api_trade_available_flag=share.api_trade_available_flag
+            min_price_increment=quotation_to_decimal(share.min_price_increment),
+            api_trade_available_flag=share.api_trade_available_flag,
+            position_uid=share.position_uid,
+            for_iis_flag=share.for_iis_flag,
+            first_1min_candle_date=share.first_1min_candle_date,
+            first_1day_candle_date=share.first_1day_candle_date
         )
 
     @classmethod
