@@ -4,7 +4,6 @@ from datetime import datetime
 from typing import Union, Optional, Tuple, List
 
 import tinkoff.invest.schemas as schemas
-from asgiref.sync import sync_to_async
 from django.db import models
 from django.db.models import QuerySet, Manager
 from numpy import number
@@ -220,13 +219,13 @@ class HistoricCandle(models.Model):
     interval = models.CharField(max_length=32, **nb)
 
     @classmethod
-    async def async_create(cls, candle: schemas.HistoricCandle, figi: str, interval: str) -> None:
+    def create(cls, candle: schemas.HistoricCandle, figi: str, interval: str) -> None:
         date_time = datetime(
             year=candle.time.year,
             month=candle.time.month,
             day=candle.time.day
         )
-        result = await cls.objects.aupdate_or_create(
+        cls.objects.update_or_create(
             open_price=quotation_to_decimal(candle.open),
             close_price=quotation_to_decimal(candle.close),
             high_price=quotation_to_decimal(candle.high),
@@ -236,14 +235,12 @@ class HistoricCandle(models.Model):
             figi=figi,
             interval=interval
         )
-        print(figi, result)
 
     @classmethod
     def get_candles_by_figi(cls, figi: str) -> QuerySet[HistoricCandle]:
         return cls.objects.filter(figi=figi)
 
     @classmethod
-    @sync_to_async
     def get_last_datetime(cls, figi: str = None) -> Optional[datetime]:
         objects = cls.objects if figi is None else cls.objects.filter(figi=figi)
         return max(objects.values_list('date_time'), default=None)
@@ -286,11 +283,8 @@ class Share(models.Model):
     first_1day_candle_date = models.DateTimeField()
 
     @classmethod
-    def delete_and_create(cls, share: schemas.Share):
-        if cls.objects.filter(uid=share.uid).exists():
-            cls.objects.filter(uid=share.uid).delete()  # TODO refactor
-
-        cls.objects.create(
+    def create(cls, share: schemas.Share):
+        cls.objects.update_or_create(
             uid=share.uid,
             figi=share.figi,
             ticker=share.ticker,
@@ -328,11 +322,12 @@ class Share(models.Model):
         )
 
     @classmethod
-    def get_figi_list(cls) -> List:
-        return list(map(lambda obj: obj[0], cls.objects.values_list('figi')))
+    def get_figi_list(cls):
+        return list(cls.objects.filter(name='figi'))
 
 
 class MovingAverage(models.Model):
+    id = models.BigAutoField(primary_key=True)
     value = models.FloatField()  # TODO may be models.DecimalField(max_digits=32, decimal_places=16)
     figi = models.CharField(max_length=32, **nb)
     date_time = models.DateTimeField()
@@ -340,10 +335,9 @@ class MovingAverage(models.Model):
 
     @classmethod
     def create(cls, value: float, figi: str, date_time: datetime, window: int):
-        cls.objects.delete_and_create()
-
-    @classmethod
-    @sync_to_async()
-    def get_last_datetime(cls, figi: str = None) -> Optional[datetime]:
-        objects = cls.objects if figi is None else cls.objects.filter(figi=figi)
-        return max(objects.values_list('date_time'), default=None)
+        cls.objects.update_or_create(
+            value=value,
+            figi=figi,
+            date_time=date_time,
+            window=window
+        )
