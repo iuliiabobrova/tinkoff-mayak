@@ -3,7 +3,7 @@ from numpy import nanpercentile
 from typing import List
 
 from corestrategy.settings import *
-from corestrategy.utils import save_signal_to_df, _now
+from corestrategy.utils import save_signal_to_df, _msknow
 
 
 def calc_actual_signals_rsi(df_shares: DataFrame,
@@ -27,7 +27,7 @@ def calc_actual_signals_rsi(df_shares: DataFrame,
                 sr_close_prices = df_close_prices[f'{figi}'].dropna()[-1:-365:-1][::-1]
                 if len(sr_close_prices) > 12:
                     last_price = df_all_lasts.loc[figi].last_price
-                    sr_close_prices.loc[_now()] = last_price
+                    sr_close_prices.loc[_msknow()] = last_price
 
                     # расчет по формуле RSI
                     sr_delta = sr_close_prices.diff()
@@ -48,11 +48,11 @@ def calc_actual_signals_rsi(df_shares: DataFrame,
                     rsi = sr_rsi[0]
                     if rsi >= upper_rsi or rsi <= lower_rsi:  # если истина, записываем в DF сигнал
                         buy_flag = 0 if rsi >= upper_rsi else 1
-                        date = _now()
+                        date = _msknow()
                         short_enabled = df_shares.loc[df_shares.index == figi].short_enabled_flag[0]
                         sr_last_signal = df_hist_sgnls[df_hist_sgnls.figi == figi].tail(1).set_index(keys='figi')
                         if not sr_last_signal.empty:
-                            if sr_last_signal.datetime[figi].date() != _now().date():
+                            if sr_last_signal.datetime[figi].date() != _msknow().date():
                                 if buy_flag == 0 and short_enabled:
                                     [df_hist_sgnls, df_actual_signals] = save_signal_to_df(buy_flag=buy_flag,
                                                                                            last_price=last_price,

@@ -6,6 +6,7 @@ from os.path import exists, getmtime
 from threading import Event
 
 from asgiref.sync import sync_to_async
+from dateutil.tz import tzutc
 from pandas import read_csv, to_datetime
 from datetime import datetime, timedelta
 from tinkoff.invest import Client, CandleInterval
@@ -13,7 +14,8 @@ from tinkoff.invest import Client, CandleInterval
 from dtb.settings import INVEST_TOKEN
 from corestrategy.hitoric_data_calc import calc_historic_signals_sma, calc_sma, save_historic_signals_rsi
 from corestrategy.settings import *
-from corestrategy.utils import historic_data_is_actual, _now, retry_with_timeout, Limit
+from corestrategy.utils import historic_data_is_actual, _msknow, retry_with_timeout, Limit, \
+    get_figi_list_with_inactual_historic_data
 from tgbot.models import HistoricCandle, Share, MovingAverage
 
 
@@ -29,23 +31,21 @@ def download_shares() -> None:
 
 
 @Limit(calls=299, period=60)  # API позволяет запрашивать свечи не более 300 раз в минуту
-#@retry_with_timeout(60)
+@retry_with_timeout(60)
 async def download_candles_by_figi(
         figi: str,
         days: int,
         interval: CandleInterval = CandleInterval.CANDLE_INTERVAL_DAY):
     """Запрашивает все ОТСУТСТВУЮЩИЕ свечи по ОДНОМУ str(figi)"""
 
-    now_date = _now() - timedelta(
-        hours=_now().hour - 5,  # TODO почему 5 ?
-        minutes=_now().minute,
-        seconds=_now().second,
-        microseconds=_now().microsecond
+    now_date = _msknow() - timedelta(
+        hours=_msknow().hour - 5,  # TODO почему 5 ?
+        minutes=_msknow().minute,
+        seconds=_msknow().second,
+        microseconds=_msknow().microsecond
     )
     date_from = now_date - timedelta(days=days) + timedelta(days=1)
-    date_to = _now() + timedelta(days=1)  # TODO refactor
-
-    print('date_from:', date_from)
+    date_to = _msknow() + timedelta(days=1)  # TODO refactor
 
     with Client(INVEST_TOKEN) as client:
         candles = client.get_all_candles(
@@ -55,7 +55,6 @@ async def download_candles_by_figi(
             interval=interval,  # запрашиваемая размерность свеч
         )
         for candle in candles:
-            print(f"Creating {figi}...")
             await HistoricCandle.async_create(candle=candle, figi=figi, interval='day')
 
 
@@ -66,12 +65,11 @@ async def download_historic_candles(figi_list: List):
 
     print('⏩Downloading historic candles')
     for figi in figi_list:
-        last_date = await HistoricCandle.get_last_datetime(figi=figi) or datetime(year=2012, month=1, day=1)
-        passed_days = (_now() - last_date).days
-        print(f"passed_days = {passed_days}")
+        last_date = await HistoricCandle.get_last_datetime(figi=figi) or \
+                    datetime(year=2012, month=1, day=1, tzinfo=tzutc())
+        passed_days = (_msknow() - last_date).days
         if passed_days == 0:  # проверка: не запрашиваем ли существующие в CSV данные
             continue
-        print('start def download by figi')
         await download_candles_by_figi(figi=figi, days=passed_days)
         if passed_days > max_days_available_by_api:
             Event().wait(timeout=3)
@@ -97,7 +95,7 @@ def get_or_calc_sma_historic_signals(sma_periods: SMACrossPeriods):
         )
         if (historic_data_is_actual(df=df) or
                 (to_datetime(getmtime(file_path) * 1000000000).date() ==
-                 (_now() - timedelta(hours=1, minutes=45)).date())):
+                 (_msknow() - timedelta(hours=1, minutes=45)).date())):
             df_historic_signals_sma = df
         else:
             df_historic_signals_sma = calc_historic_signals_sma(
@@ -115,10 +113,8 @@ def update_data():
     print('⏩START DATA CHECK. It can take 2 hours')
 
     download_shares()
-    if not historic_data_is_actual(HistoricCandle):
-        a = Share.get_figi_list()[:3]
-        print(a)
-        asyncio.run(download_historic_candles(figi_list=a))
+    figi_list = get_figi_list_with_inactual_historic_data(HistoricCandle)
+    asyncio.run(download_historic_candles(figi_list=figi_list))
 
     # for periods in sma_cross_periods_all:
     #     recalc_sma_if_inactual(sma_periods=periods)

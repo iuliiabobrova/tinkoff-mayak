@@ -4,7 +4,7 @@ from numpy import nanpercentile
 from tinkoff.invest import Client
 
 from corestrategy.settings import *
-from corestrategy.utils import _now
+from corestrategy.utils import _msknow
 from corestrategy.actual_data_download import get_all_lasts
 
 from dtb.settings import INVEST_TOKEN
@@ -33,7 +33,7 @@ def _calc_actual_signals_rsi(df_shares: DataFrame,
                 if len(sr_close_prices) > 12:
                     print('enough close prices to calc')
                     last_price = df_all_lasts.loc[figi].last_price
-                    sr_close_prices.loc[_now()] = last_price
+                    sr_close_prices.loc[_msknow()] = last_price
 
                     # расчет по формуле RSI
                     sr_delta = sr_close_prices.diff()
@@ -60,7 +60,7 @@ def _calc_actual_signals_rsi(df_shares: DataFrame,
                         sr_last_signal = df_hist_sgnls[df_hist_sgnls.figi == figi].tail(1).set_index(keys='figi')
                         if not sr_last_signal.empty:
                             print('SR is not empty')
-                            if sr_last_signal.datetime[figi].date() != _now().date():
+                            if sr_last_signal.datetime[figi].date() != _msknow().date():
                                 print('Datetime of sr is ok')
                                 if buy_flag == 0 and short_enabled:
                                     print('Signal:', "sell" if buy_flag == 0 else 'buy', figi)

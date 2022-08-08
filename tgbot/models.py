@@ -4,6 +4,8 @@ from datetime import datetime
 from typing import Union, Optional, Tuple, List
 
 import tinkoff.invest.schemas as schemas
+from asgiref.sync import sync_to_async
+from dateutil.tz import tzutc
 from django.db import models
 from django.db.models import QuerySet, Manager
 from numpy import number
@@ -219,13 +221,14 @@ class HistoricCandle(models.Model):
     interval = models.CharField(max_length=32, **nb)
 
     @classmethod
-    def create(cls, candle: schemas.HistoricCandle, figi: str, interval: str) -> None:
+    async def async_create(cls, candle: schemas.HistoricCandle, figi: str, interval: str) -> None:
         date_time = datetime(
             year=candle.time.year,
             month=candle.time.month,
-            day=candle.time.day
+            day=candle.time.day,
+            tzinfo=tzutc()
         )
-        cls.objects.update_or_create(
+        await cls.objects.aupdate_or_create(
             open_price=quotation_to_decimal(candle.open),
             close_price=quotation_to_decimal(candle.close),
             high_price=quotation_to_decimal(candle.high),
@@ -241,9 +244,10 @@ class HistoricCandle(models.Model):
         return cls.objects.filter(figi=figi)
 
     @classmethod
+    @sync_to_async()
     def get_last_datetime(cls, figi: str = None) -> Optional[datetime]:
         objects = cls.objects if figi is None else cls.objects.filter(figi=figi)
-        return max(objects.values_list('date_time'), default=None)
+        return max(objects.values_list('date_time', flat=True), default=None)
 
 
 class Share(models.Model):
@@ -283,8 +287,11 @@ class Share(models.Model):
     first_1day_candle_date = models.DateTimeField()
 
     @classmethod
-    def create(cls, share: schemas.Share):
-        cls.objects.update_or_create(
+    def delete_and_create(cls, share: schemas.Share):
+        record = cls.objects.filter(figi=share.figi)
+        if record.exists():
+            record.delete()
+        cls.objects.create(
             uid=share.uid,
             figi=share.figi,
             ticker=share.ticker,
@@ -323,7 +330,7 @@ class Share(models.Model):
 
     @classmethod
     def get_figi_list(cls):
-        return list(cls.objects.filter(name='figi'))
+        return list(cls.objects.values_list('figi', flat=True))
 
 
 class MovingAverage(models.Model):
@@ -341,3 +348,9 @@ class MovingAverage(models.Model):
             date_time=date_time,
             window=window
         )
+
+    @classmethod
+    @sync_to_async()
+    def get_last_datetime(cls, figi: str = None) -> Optional[datetime]:
+        objects = cls.objects if figi is None else cls.objects.filter(figi=figi)
+        return max(objects.values_list('date_time', flat=True), default=None)
