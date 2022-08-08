@@ -1,36 +1,36 @@
 # Код написан на основе документации API https://tinkoff.github.io/investAPI/
 # В основном используется Сервис Котировок https://tinkoff.github.io/investAPI/marketdata/
 # Figi - это уникальный ID акции
-
+import asyncio
 from os.path import exists, getmtime
-from typing import List
 from threading import Event
 
-from pandas import DataFrame, read_csv, to_datetime
+from asgiref.sync import sync_to_async
+from pandas import read_csv, to_datetime
 from datetime import datetime, timedelta
 from tinkoff.invest import Client, CandleInterval
 
 from dtb.settings import INVEST_TOKEN
 from corestrategy.hitoric_data_calc import calc_historic_signals_sma, calc_sma, save_historic_signals_rsi
 from corestrategy.settings import *
-from corestrategy.utils import historic_data_is_actual, _now, timer, retry_with_timeout, Limit
+from corestrategy.utils import historic_data_is_actual, _now, retry_with_timeout, Limit
 from tgbot.models import HistoricCandle, Share, MovingAverage
 
 
-# @retry_with_timeout(60)
+@retry_with_timeout(60)
 def download_shares() -> None:
     """Позволяет получить из API список всех акций и их параметров"""
 
     with Client(INVEST_TOKEN) as client:
         for share in client.instruments.shares().instruments:
-            Share.create(share=share)
+            Share.delete_and_create(share=share)
 
     print('✅Downloaded list of shares')
 
 
 @Limit(calls=299, period=60)  # API позволяет запрашивать свечи не более 300 раз в минуту
-# @retry_with_timeout(60)
-def download_candles_by_figi(
+#@retry_with_timeout(60)
+async def download_candles_by_figi(
         figi: str,
         days: int,
         interval: CandleInterval = CandleInterval.CANDLE_INTERVAL_DAY):
@@ -45,6 +45,8 @@ def download_candles_by_figi(
     date_from = now_date - timedelta(days=days) + timedelta(days=1)
     date_to = _now() + timedelta(days=1)  # TODO refactor
 
+    print('date_from:', date_from)
+
     with Client(INVEST_TOKEN) as client:
         candles = client.get_all_candles(
             figi=figi,  # сюда должен поступать только один figi (id акции)
@@ -53,7 +55,8 @@ def download_candles_by_figi(
             interval=interval,  # запрашиваемая размерность свеч
         )
         for candle in candles:
-            HistoricCandle.create(candle=candle, figi=figi, interval='day')
+            print(f"Creating {figi}...")
+            await HistoricCandle.async_create(candle=candle, figi=figi, interval='day')
 
 
 async def download_historic_candles(figi_list: List):
@@ -63,10 +66,12 @@ async def download_historic_candles(figi_list: List):
 
     print('⏩Downloading historic candles')
     for figi in figi_list:
-        last_date = HistoricCandle.get_last_datetime_by_figi(figi=figi) or datetime(year=2012, month=1, day=1)
+        last_date = await HistoricCandle.get_last_datetime(figi=figi) or datetime(year=2012, month=1, day=1)
         passed_days = (_now() - last_date).days
+        print(f"passed_days = {passed_days}")
         if passed_days == 0:  # проверка: не запрашиваем ли существующие в CSV данные
             continue
+        print('start def download by figi')
         await download_candles_by_figi(figi=figi, days=passed_days)
         if passed_days > max_days_available_by_api:
             Event().wait(timeout=3)
@@ -76,15 +81,12 @@ async def download_historic_candles(figi_list: List):
 
 # проверка sma на актуальность
 def recalc_sma_if_inactual(sma_periods: SMACrossPeriods):
-    if not historic_data_is_actual(MovingAverage.objects.filter(name='date_time')):  # TODO check parameter
+    if not historic_data_is_actual(MovingAverage):  # TODO check parameter
         calc_sma(sma_periods=sma_periods)
 
 
 # проверка sma-signals на актуальность
-def get_or_calc_sma_historic_signals(df_close_prices: DataFrame,
-                                     df_sma: DataFrame,
-                                     df_shares: DataFrame,
-                                     sma_periods: SMACrossPeriods) -> DataFrame:
+def get_or_calc_sma_historic_signals(sma_periods: SMACrossPeriods):
     file_path = f'csv/historic_signals_sma_{sma_periods.short}_{sma_periods.long}.csv'
     if exists(path=file_path):
         df = read_csv(
@@ -99,107 +101,49 @@ def get_or_calc_sma_historic_signals(df_close_prices: DataFrame,
             df_historic_signals_sma = df
         else:
             df_historic_signals_sma = calc_historic_signals_sma(
-                df_close_prices=df_close_prices,
-                df_historic_sma=df_sma,
-                df_shares=df_shares,
-                csv_path=file_path,
                 strategy_id=f'sma_{sma_periods.short}_{sma_periods.long}'
             )
     else:
         df_historic_signals_sma = calc_historic_signals_sma(
-            df_close_prices=df_close_prices,
-            df_historic_sma=df_sma,
-            df_shares=df_shares,
-            csv_path=file_path,
             strategy_id=f'sma_{sma_periods.short}_{sma_periods.long}'
         )
 
-    return df_historic_signals_sma
 
-
-def update_data() -> List:
+def update_data():
     """Функция вмещает в себя все функции выше.
     Задаёт условия, когда необходимо подгружать и рассчитывать исторические данные, а когда нет"""
     print('⏩START DATA CHECK. It can take 2 hours')
 
     download_shares()
     if not historic_data_is_actual(HistoricCandle):
-        download_historic_candles(figi_list=Share.get_figi_list())
+        a = Share.get_figi_list()[:3]
+        print(a)
+        asyncio.run(download_historic_candles(figi_list=a))
 
-    df_sma_50_200 = recalc_sma_if_inactual(
-        df_close_prices=df_close_prices,
-        figi_list=Share.get_figi_list(),
-        sma_periods=sma_cross_periods_50_200
-    )
-    df_sma_30_90 = recalc_sma_if_inactual(
-        df_close_prices=df_close_prices,
-        figi_list=Share.get_figi_list(),
-        sma_periods=sma_cross_periods_30_90
-    )
-    df_sma_20_60 = recalc_sma_if_inactual(
-        df_close_prices=df_close_prices,
-        figi_list=Share.get_figi_list(),
-        sma_periods=sma_cross_periods_20_60
-    )
-    df_sma_list = [df_sma_50_200, df_sma_30_90, df_sma_20_60]
+    # for periods in sma_cross_periods_all:
+    #     recalc_sma_if_inactual(sma_periods=periods)
+    #     get_or_calc_sma_historic_signals(sma_periods=periods)
 
-    df_historic_signals_sma_50_200 = get_or_calc_sma_historic_signals(
-        df_close_prices=df_close_prices,
-        df_sma=df_sma_50_200,
-        df_shares=Share.objects.all(),
-        sma_periods=sma_cross_periods_50_200
-    )
-    df_historic_signals_sma_30_90 = get_or_calc_sma_historic_signals(
-        df_close_prices=df_close_prices,
-        df_sma=df_sma_30_90,
-        df_shares=Share.objects.all(),
-        sma_periods=sma_cross_periods_30_90
-    )
-    df_historic_signals_sma_20_60 = get_or_calc_sma_historic_signals(
-        df_close_prices=df_close_prices,
-        df_sma=df_sma_20_60,
-        df_shares=Share.objects.all(),
-        sma_periods=sma_cross_periods_20_60
-    )
-    df_historic_signals_sma_list = [
-        df_historic_signals_sma_50_200,
-        df_historic_signals_sma_30_90,
-        df_historic_signals_sma_20_60
-    ]
-
-    # проверка rsi-signals на актуальность
-    if exists(path='csv/historic_signals_rsi.csv'):
-        df = read_csv(
-            filepath_or_buffer='csv/historic_signals_rsi.csv',
-            sep=';',
-            index_col=0,
-            parse_dates=['datetime'],
-            low_memory=False
-        )
-        if historic_data_is_actual(df=df):
-            df_historic_signals_rsi = df
-            df_rsi = read_csv(
-                filepath_or_buffer='csv/rsi.csv',
-                sep=';',
-                index_col=0
-            )
-        else:
-            [df_historic_signals_rsi, df_rsi] = save_historic_signals_rsi(
-                df_close_prices=df_close_prices,
-                df_shares=df_shares
-            )
-    else:
-        [df_historic_signals_rsi, df_rsi] = save_historic_signals_rsi(
-            df_close_prices=df_close_prices,
-            df_shares=df_shares
-        )
+    # # проверка rsi-signals на актуальность
+    # if exists(path='csv/historic_signals_rsi.csv'):
+    #     df = read_csv(
+    #         filepath_or_buffer='csv/historic_signals_rsi.csv',
+    #         sep=';',
+    #         index_col=0,
+    #         parse_dates=['datetime'],
+    #         low_memory=False
+    #     )
+    #     if historic_data_is_actual(df=df):
+    #         df_historic_signals_rsi = df
+    #         df_rsi = read_csv(
+    #             filepath_or_buffer='csv/rsi.csv',
+    #             sep=';',
+    #             index_col=0
+    #         )
+    #     else:
+    #         save_historic_signals_rsi()
+    # else:
+    #     save_historic_signals_rsi()
     # calc_std(df_close_prices=df_close_prices) TODO (пока не используется)
     # calc_profit(df_historic_signals_rsi=df_historic_signals_rsi)  TODO RSI-profit
     print('✅All data is actual')
-
-    return [
-        df_historic_signals_sma_list,
-        df_historic_signals_rsi,
-        df_sma_list,
-        df_rsi
-    ]

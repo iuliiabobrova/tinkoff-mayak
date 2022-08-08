@@ -8,7 +8,11 @@ from tgbot.models import (
     User,
     FeedbackMessage,
     Subscription,
-    Location, Command
+    Location,
+    Command,
+    HistoricCandle,
+    Share,
+    MovingAverage
 )
 from tgbot.forms import BroadcastForm
 
@@ -40,8 +44,6 @@ class UserAdmin(admin.ModelAdmin):
         for obj in queryset:
             row = writer.writerow([getattr(obj, field) for field in field_names])
         return response
-
-
 
     def broadcast(self, request, queryset):
         """ Select users via check mark in django-admin panel, then select "Broadcast" to send message"""
@@ -104,6 +106,7 @@ class SubscriptionAdmin(admin.ModelAdmin):
             row = writer.writerow([getattr(obj, field) for field in field_names])
         return response
 
+
 @admin.register(Location)
 class LocationAdmin(admin.ModelAdmin):
     list_display = ['id', 'user_id', 'created_at']
@@ -127,3 +130,67 @@ class CommandAdmin(admin.ModelAdmin):
         for obj in queryset:
             row = writer.writerow([getattr(obj, field) for field in field_names])
         return response
+
+
+@admin.register(Share)
+class ShareAdmin(admin.ModelAdmin):
+    list_display = [
+        'uid',
+        'figi',
+        'ticker',
+        'class_code',
+        'isin',
+        'lot',
+        'currency',
+        'klong',
+        'kshort',
+        'dlong',
+        'dshort',
+        'dlong_min',
+        'dshort_min',
+        'short_enabled_flag',
+        'name',
+        'exchange',
+        'ipo_date',
+        'issue_size',
+        'country_of_risk',
+        'country_of_risk_name',
+        'sector',
+        'issue_size_plan',
+        'trading_status',
+        'otc_flag',
+        'buy_available_flag',
+        'sell_available_flag',
+        'div_yield_flag',
+        'share_type',
+        'min_price_increment',
+        'api_trade_available_flag',
+        'position_uid',
+        'for_iis_flag',
+        'first_1min_candle_date',
+    ]
+
+
+@admin.register(HistoricCandle)
+class HistoricCandleAdmin(admin.ModelAdmin):
+    list_display = [
+        'id',
+        'open_price',
+        'high_price',
+        'low_price',
+        'close_price',
+        'volume',
+        'date_time',
+        'figi',
+        'interval'
+    ]
+
+
+@admin.register(MovingAverage)
+class MovingAverageAdmin(admin.ModelAdmin):
+    list_display = [
+        'value',
+        'figi',
+        'date_time',
+        'window'
+    ]

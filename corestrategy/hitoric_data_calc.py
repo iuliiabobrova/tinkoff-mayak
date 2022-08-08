@@ -10,7 +10,7 @@ from corestrategy.settings import (
     upper_rsi_percentile
 )
 from corestrategy.utils import save_signal_to_df
-from tgbot.models import Share, HistoricCandle
+from tgbot.models import Share, HistoricCandle, MovingAverage
 
 
 def calc_std(df_close_prices: DataFrame,
@@ -34,8 +34,8 @@ def calc_sma(sma_periods: SMACrossPeriods):
     print('⏩Start calculating SMA-float')
     for figi in Share.get_figi_list():
         try:
-            list_of_historic_prices = HistoricCandle.get_candles_by_figi(figi=figi).close_price
-            sr_historic_prices = Series(list_of_historic_prices)
+            sr_historic_prices = Series(HistoricCandle.get_candles_by_figi(figi=figi))
+            print(sr_historic_prices)
 
             # скользящие средние за короткий период
             sr_sma_short = sr_historic_prices.rolling(sma_periods.short - 1).mean().dropna().round(3)
@@ -44,11 +44,12 @@ def calc_sma(sma_periods: SMACrossPeriods):
 
             # TODO refactor запись в БД и проверить результаты sr_sma_long, sr_sma_short
             # объединяем короткие и длинные скользящие средние
-            df_ma = concat([df_sma_short, df_sma_long], axis=1, copy=False)
-            # именуем столбцы корректно
-            df_ma.columns = [f'{figi}.short', f'{figi}.long']
+            for value in sr_sma_short:
+                MovingAverage.create(value=value, figi=figi, window=sma_periods.short - 1)
+            for value in sr_sma_long:
+                MovingAverage.create(value=value, figi=figi, window=sma_periods.short - 1)
 
-        except KeyError:
+        except KeyError:  # TODO убрать try-except логикой
             print('No data to calc. Figi:', figi)
 
     print('✅Calc of SMA done')
@@ -206,16 +207,11 @@ def calc_historic_signals_rsi(df_close_prices: DataFrame,
         yield df_historic_signals_rsi
 
 
-def save_historic_signals_rsi(df_close_prices: DataFrame,
-                              df_shares: DataFrame) -> List[DataFrame]:
+def save_historic_signals_rsi():
     """Обеспечивает сохранение сигналов в DataFrame и CSV"""
 
-    df_rsi = calc_rsi_float(df_close_prices=df_close_prices)
-    list_df = calc_historic_signals_rsi(
-        df_close_prices=df_close_prices,
-        df_shares=df_shares,
-        df_rsi=df_rsi
-    )
+    df_rsi = calc_rsi_float()
+    list_df = calc_historic_signals_rsi()
     df_historic_signals_rsi = concat(objs=list_df, ignore_index=True, copy=False)
 
     # Сортировка по дате. В конце самые актуальные сигналы
@@ -223,8 +219,6 @@ def save_historic_signals_rsi(df_close_prices: DataFrame,
     df_historic_signals_rsi.reset_index(drop=True, inplace=True)
     df_historic_signals_rsi.to_csv(path_or_buf='csv/historic_signals_rsi.csv', sep=';')
     print('✅Historic signals RSI are saved')
-
-    return [df_historic_signals_rsi, df_rsi]
 
 
 def calc_profit(df_historic_signals_rsi: DataFrame,

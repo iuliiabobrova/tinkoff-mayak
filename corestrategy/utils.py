@@ -1,3 +1,4 @@
+import asyncio
 import functools
 from asyncio import sleep as asyncsleep
 from datetime import time, datetime
@@ -212,7 +213,7 @@ def save_signal_to_df(buy_flag: int,
 def historic_data_is_actual(cls) -> bool:
     """Позволяет убедиться, что данные в БД актуальны"""
 
-    date_time = cls.get_last_datetime()
+    date_time = asyncio.run(cls.get_last_datetime())
     if date_time is None:
         return False
     market_hour = _now().date() + td(hours=1, minutes=45)

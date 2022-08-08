@@ -1,5 +1,8 @@
 # в этом файле находятся настройки стратегий
 """SMA"""
+from typing import List
+from django.db.models import QuerySet
+
 std_period = 20  # дней (обязательно меньше sma_short_period)
 
 
@@ -12,6 +15,12 @@ class SMACrossPeriods:
 sma_cross_periods_50_200 = SMACrossPeriods(50, 200)
 sma_cross_periods_30_90 = SMACrossPeriods(30, 90)
 sma_cross_periods_20_60 = SMACrossPeriods(20, 60)
+
+sma_cross_periods_all = [
+    sma_cross_periods_50_200,
+    sma_cross_periods_30_90,
+    sma_cross_periods_20_60
+]
 
 """RSI"""
 period_of_ema = 13  # (дней) значение для расчета экспоненциальной скользящей средней
