@@ -335,7 +335,7 @@ class MovingAverage(models.Model):
 
     @classmethod
     def create(cls, value: float, figi: str, date_time: datetime, window: int):
-        cls.objects.get_or_create(
+        cls.objects.update_or_create(
             value=value,
             figi=figi,
             date_time=date_time,
