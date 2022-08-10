@@ -220,7 +220,8 @@ def start_of_current_day() -> datetime:
 def historic_data_is_actual(cls, figi: str) -> bool:
     """Позволяет убедиться, что данные в БД актуальны"""
 
-    date_time = asyncio.run(cls.get_last_datetime(figi=figi))
+    args = [arg for arg in [figi, period] if arg]
+    date_time = asyncio.run(cls.get_last_datetime(*args))
 
     if date_time is None:
         return False

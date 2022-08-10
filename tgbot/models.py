@@ -353,4 +353,6 @@ class MovingAverage(models.Model):
     @sync_to_async()
     def get_last_datetime(cls, figi: str = None) -> Optional[datetime]:
         objects = cls.objects if figi is None else cls.objects.filter(figi=figi)
-        return max(objects.values_list('date_time', flat=True), default=None)
+        if period is not None:
+            objects = objects.filter(period=period)
+        return max(objects.values_list('date_time', flat=True), default=None)  # TODO SQL SELECT MAX
