@@ -13,8 +13,6 @@ from telegram import Update
 from telegram.ext import CallbackContext
 from tinkoff.invest.utils import quotation_to_decimal
 
-from dtb.settings import DEBUG
-
 from tgbot.handlers.utils.info import extract_user_data_from_update
 from utils.models import CreateUpdateTracker, nb, CreateTracker, GetOrNoneManager
 
@@ -186,29 +184,6 @@ class FeedbackMessage(CreateTracker):
             user=user, update_id=update.update_id, text=text)
 
 
-class Location(CreateTracker):
-    id = models.BigAutoField(primary_key=True)
-    user = models.ForeignKey(User, on_delete=models.CASCADE)
-    latitude = models.FloatField()
-    longitude = models.FloatField()
-
-    objects = GetOrNoneManager()
-
-    def __str__(self):
-        return f"user: {self.user}, created at {self.created_at.strftime('(%H:%M, %d %B %Y)')}"
-
-    def save(self, *args, **kwargs):
-        super(Location, self).save(*args, **kwargs)
-        # Parse location with arcgis
-        from arcgis.tasks import save_data_from_arcgis
-        if DEBUG:
-            save_data_from_arcgis(latitude=self.latitude,
-                                  longitude=self.longitude, location_id=self.pk)
-        else:
-            save_data_from_arcgis.delay(
-                latitude=self.latitude, longitude=self.longitude, location_id=self.pk)
-
-
 class HistoricCandle(models.Model):
     id = models.BigAutoField(primary_key=True)
     open_price = models.DecimalField(max_digits=32, decimal_places=16)
@@ -221,23 +196,38 @@ class HistoricCandle(models.Model):
     interval = models.CharField(max_length=32, **nb)
 
     @classmethod
-    async def async_create(cls, candle: schemas.HistoricCandle, figi: str, interval: str) -> None:
+    async def async_create(cls, candle: Optional[schemas.HistoricCandle], figi: str, interval: str) -> None:
         date_time = datetime(
             year=candle.time.year,
             month=candle.time.month,
             day=candle.time.day,
             tzinfo=tzutc()
         )
-        await cls.objects.aupdate_or_create(
-            open_price=quotation_to_decimal(candle.open),
-            close_price=quotation_to_decimal(candle.close),
-            high_price=quotation_to_decimal(candle.high),
-            low_price=quotation_to_decimal(candle.low),
-            volume=candle.volume,
-            date_time=date_time,
-            figi=figi,
-            interval=interval
-        )
+
+        if type(candle) == HistoricCandle:
+            await cls.objects.aupdate_or_create(
+                open_price=quotation_to_decimal(candle.open),
+                close_price=quotation_to_decimal(candle.close),
+                high_price=quotation_to_decimal(candle.high),
+                low_price=quotation_to_decimal(candle.low),
+                volume=candle.volume,
+                date_time=date_time,
+                figi=figi,
+                interval=interval
+            )
+        elif type(candle) == QuerySet:
+            for i in candle:
+                
+            await cls.objects.abulk_create(
+                open_price=quotation_to_decimal(candle.open),
+                close_price=quotation_to_decimal(candle.close),
+                high_price=quotation_to_decimal(candle.high),
+                low_price=quotation_to_decimal(candle.low),
+                volume=candle.volume,
+                date_time=date_time,
+                figi=figi,
+                interval=interval
+            )
 
     @classmethod
     def get_candles_by_figi(cls, figi: str) -> QuerySet[HistoricCandle]:
@@ -247,7 +237,9 @@ class HistoricCandle(models.Model):
     @sync_to_async()
     def get_last_datetime(cls, figi: str = None) -> Optional[datetime]:
         objects = cls.objects if figi is None else cls.objects.filter(figi=figi)
-        return max(objects.values_list('date_time', flat=True), default=None)
+        if objects.exists():
+            return objects.latest('date_time').date_time
+        return
 
 
 class Share(models.Model):
@@ -338,20 +330,28 @@ class MovingAverage(models.Model):
     value = models.FloatField()  # TODO may be models.DecimalField(max_digits=32, decimal_places=16)
     figi = models.CharField(max_length=32, **nb)
     date_time = models.DateTimeField()
-    window = models.IntegerField()
+    period = models.IntegerField()
 
     @classmethod
-    def create(cls, value: float, figi: str, date_time: datetime, window: int):
+    def create(cls, value: float, figi: str, date_time: datetime, period: int):
         cls.objects.update_or_create(
             value=value,
             figi=figi,
             date_time=date_time,
-            window=window
+            period=period
         )
 
     @classmethod
+    def get_figi_ma(cls, figi: str = None, period: int = None) -> QuerySet[MovingAverage]:
+        if period is None:
+            objects = cls.objects if figi is None else cls.objects.filter(figi=figi)
+        else:
+            objects = cls.objects if figi is None else cls.objects.filter(figi=figi, period=period)
+        return objects
+
+    @classmethod
     @sync_to_async()
-    def get_last_datetime(cls, figi: str = None) -> Optional[datetime]:
+    def get_last_datetime(cls, period: int = None, figi: str = None) -> Optional[datetime]:
         objects = cls.objects if figi is None else cls.objects.filter(figi=figi)
         if period is not None:
             objects = objects.filter(period=period)

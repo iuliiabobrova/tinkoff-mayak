@@ -11,7 +11,7 @@ from corestrategy.utils import (is_time_to_download_data,
                                 market_is_closed,
                                 wait_until_download_time,
                                 wait_until_market_is_open,
-                                _msknow)
+                                now_msk)
 from corestrategy.actual_data_download import get_all_lasts
 from corestrategy.historic_data_download import update_data
 from corestrategy.strategy_sma import calc_actual_signals_sma
@@ -104,10 +104,10 @@ def run_strategies() -> None:
 
     while True:
         if market_is_closed() and not is_time_to_download_data():
-            print(f'Market is closed now. Now-time: {_msknow()}')
+            print(f'Market is closed now. Now-time: {now_msk()}')
             wait_until_download_time()
         elif is_time_to_download_data():
-            print(f'Time to download data. Now-time: {_msknow()}')
+            print(f'Time to download data. Now-time: {now_msk()}')
             update_data()
             wait_until_market_is_open()
         while not market_is_closed():

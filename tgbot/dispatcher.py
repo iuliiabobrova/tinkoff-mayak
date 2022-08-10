@@ -3,7 +3,6 @@
 """
 import sys
 import logging
-import threading
 from typing import Dict
 
 import telegram.error
@@ -31,11 +30,11 @@ from tgbot.handlers.feedback.manage_data import (
     NEGATIVE_ANSWER_BUTTON,
     ASK_FOR_DETAILED_FEEDBACK_BUTTON
 )
-from tgbot.handlers.location import handlers as location_handlers
+
 from tgbot.handlers.onboarding import handlers as onboarding_handlers
 from tgbot.handlers.stock import handlers as stock_handlers
 from tgbot.handlers.strategies import handlers as strategies_handlers
-from tgbot.handlers.turn_off_signals.manage_data import RSI_DISCONNECT_BUTTON, ALL_DISCONNECT_BUTTON
+from tgbot.handlers.turn_off_signals.manage_data import ALL_DISCONNECT_BUTTON
 from tgbot.handlers.strategy_info import handlers as strategy_info_handlers
 from tgbot.handlers.time import handlers as time_handlers
 from tgbot.handlers.turn_off_signals import handlers as turn_off_signals_handlers
@@ -139,7 +138,7 @@ def setup_dispatcher(dp):
 
 def run_pooling():
     """ Run bot in pooling mode """
-    updater = Updater(TELEGRAM_TOKEN, use_context=True)
+    updater = Updater(TELEGRAM_TOKEN)
 
     dp = updater.dispatcher
     dp = setup_dispatcher(dp)
@@ -205,5 +204,4 @@ def set_up_commands(bot_instance: Bot) -> None:
 set_up_commands(bot)
 
 n_workers = 0 if DEBUG else 4
-dispatcher = setup_dispatcher(Dispatcher(
-    bot, update_queue=None, workers=n_workers, use_context=True))
+dispatcher = setup_dispatcher(Dispatcher(bot, update_queue=None, workers=n_workers))

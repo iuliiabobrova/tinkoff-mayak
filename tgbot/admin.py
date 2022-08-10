@@ -8,7 +8,6 @@ from tgbot.models import (
     User,
     FeedbackMessage,
     Subscription,
-    Location,
     Command,
     HistoricCandle,
     Share,
@@ -17,7 +16,7 @@ from tgbot.models import (
 from tgbot.forms import BroadcastForm
 
 from tgbot.tasks import broadcast_message
-from tgbot.handlers.broadcast_message.utils import _send_message
+from tgbot.handlers.broadcast_message.utils import send_message
 
 
 @admin.register(User)
@@ -54,10 +53,7 @@ class UserAdmin(admin.ModelAdmin):
 
             if DEBUG:  # for test / debug purposes - run in same thread
                 for user_id in user_ids:
-                    _send_message(
-                        user_id=user_id,
-                        text=broadcast_message_text,
-                    )
+                    send_message(user_id=user_id, text=broadcast_message_text)
                 self.message_user(
                     request, f"Just broadcasted to {len(queryset)} users")
             else:
@@ -105,11 +101,6 @@ class SubscriptionAdmin(admin.ModelAdmin):
         for obj in queryset:
             row = writer.writerow([getattr(obj, field) for field in field_names])
         return response
-
-
-@admin.register(Location)
-class LocationAdmin(admin.ModelAdmin):
-    list_display = ['id', 'user_id', 'created_at']
 
 
 @admin.register(Command)
@@ -192,5 +183,5 @@ class MovingAverageAdmin(admin.ModelAdmin):
         'value',
         'figi',
         'date_time',
-        'window'
+        'period'
     ]

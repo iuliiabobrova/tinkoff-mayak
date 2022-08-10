@@ -2,15 +2,15 @@ from typing import List
 from datetime import datetime
 from numpy import nanpercentile
 
-from pandas import DataFrame, Series, concat, merge, isna
+from pandas import DataFrame, Series, concat, isna
 
 from corestrategy.settings import (
-    std_period, SMACrossPeriods, columns_sma,
+    std_period, SMACrossPeriods,
     columns_rsi, period_of_ema, lower_rsi_percentile,
-    upper_rsi_percentile
+    upper_rsi_percentile, sma_cross_periods_all
 )
-from corestrategy.utils import save_signal_to_df
-from tgbot.models import Share, HistoricCandle, MovingAverage
+from corestrategy.utils import save_signal_to_df, get_figi_list_with_inactual_historic_data
+from tgbot.models import HistoricCandle, MovingAverage
 
 
 def calc_std(df_close_prices: DataFrame,
@@ -28,31 +28,37 @@ def calc_std(df_close_prices: DataFrame,
     return df_price_std
 
 
-def calc_sma(sma_periods: SMACrossPeriods):
+def calc_sma(period: int, figi_list: List):
     """Считает SMA"""
 
     print('⏩Start calculating SMA-float')
-    for figi in Share.get_figi_list():
+    for figi in figi_list:
         try:
-            sr_historic_prices = Series(HistoricCandle.get_candles_by_figi(figi=figi))
-            print(sr_historic_prices)
-
-            # скользящие средние за короткий период
-            sr_sma_short = sr_historic_prices.rolling(sma_periods.short - 1).mean().dropna().round(3)
-            # скользящие средние за длинный период
-            sr_sma_long = sr_historic_prices.rolling(sma_periods.long - 1).mean().dropna().round(3)
-
-            # TODO refactor запись в БД и проверить результаты sr_sma_long, sr_sma_short
-            # объединяем короткие и длинные скользящие средние
-            for value in sr_sma_short:
-                MovingAverage.create(value=value, figi=figi, window=sma_periods.short - 1)
-            for value in sr_sma_long:
-                MovingAverage.create(value=value, figi=figi, window=sma_periods.short - 1)
+            candles = HistoricCandle.get_candles_by_figi(figi=figi)
+            list_close_price = list(map(lambda candle: [candle.close_price], candles))
+            list_datetime = list(map(lambda candle: candle.date_time, candles))
+            df_historic_prices = DataFrame(index=list_datetime, data=list_close_price, columns=['close_price'])
+            df_sma_short = df_historic_prices.rolling(period - 1).mean().dropna().round(3)
+            for index in df_sma_short.index:
+                MovingAverage.create(
+                    value=df_sma_short.close_price[index],
+                    figi=figi,
+                    period=period - 1,
+                    date_time=index)
 
         except KeyError:  # TODO убрать try-except логикой
             print('No data to calc. Figi:', figi)
 
     print('✅Calc of SMA done')
+
+
+# проверка sma на актуальность
+def recalc_sma_if_inactual():
+    period_tuples = map(lambda periods: (periods.short, periods.long), sma_cross_periods_all)
+    for period in list(sum(period_tuples, ())):
+        figi_list = get_figi_list_with_inactual_historic_data(MovingAverage, period=period)
+        calc_sma(period=period, figi_list=figi_list)
+        print('✅Calc of SMA done')
 
 
 def historic_sma_cross(previous_historic_short_sma: float,
@@ -73,10 +79,7 @@ def historic_sma_cross(previous_historic_short_sma: float,
         buy_flag = 0 if crossing_sell else 1
         [df_historic_signals_sma, hist_signal] = save_signal_to_df(buy_flag=buy_flag, last_price=historic_last_price,
                                                                    figi=figi, date_time=historic_date,
-                                                                   strategy_id=strategy_id, df_shares=df_shares,
-                                                                   df=df_historic_signals_sma)
-
-    return df_historic_signals_sma
+                                                                   strategy_id=strategy_id)
 
 
 def calc_historic_signals_sma_by_figi(figi: str,
@@ -110,7 +113,6 @@ def calc_historic_signals_sma_by_figi(figi: str,
                     figi=figi,
                     strategy_id=strategy_id
                 )
-    return df_historic_signals_sma
 
 
 def calc_historic_signals_sma(df_close_prices: DataFrame,
@@ -130,12 +132,7 @@ def calc_historic_signals_sma(df_close_prices: DataFrame,
             strategy_id=strategy_id
         )
 
-    df_historic_signals_sma.sort_values(by='datetime', inplace=True)
-    df_historic_signals_sma.reset_index(drop=True, inplace=True)
-    df_historic_signals_sma.to_csv(path_or_buf=csv_path, sep=';')
     print('✅Historic_signals_SMA_are_saved to CSV')
-
-    return df_historic_signals_sma
 
 
 def calc_one_figi_signals_rsi(sr_rsi: Series,
@@ -258,3 +255,27 @@ def calc_profit(df_historic_signals_rsi: DataFrame,
     df_profit_sma.to_csv(path_or_buf='csv/historic_profit_sma.csv', sep=';')
     df_profit_rsi.to_csv(path_or_buf='csv/historic_profit_rsi.csv', sep=';')
     print('✅Calculation_of_profit_is_done')
+
+
+# проверка sma-signals на актуальность
+def get_or_calc_sma_historic_signals(sma_periods: SMACrossPeriods):
+    file_path = f'csv/historic_signals_sma_{sma_periods.short}_{sma_periods.long}.csv'
+    if exists(path=file_path):
+        df = read_csv(
+            filepath_or_buffer=file_path,
+            sep=';',
+            index_col=0,
+            parse_dates=['datetime']
+        )
+        if (historic_data_is_actual(df=df) or
+                (to_datetime(getmtime(file_path) * 1000000000).date() ==
+                 (now_msk() - timedelta(hours=1, minutes=45)).date())):
+            df_historic_signals_sma = df
+        else:
+            df_historic_signals_sma = calc_historic_signals_sma(
+                strategy_id=f'sma_{sma_periods.short}_{sma_periods.long}'
+            )
+    else:
+        df_historic_signals_sma = calc_historic_signals_sma(
+            strategy_id=f'sma_{sma_periods.short}_{sma_periods.long}'
+        )

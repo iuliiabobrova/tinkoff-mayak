@@ -9,7 +9,7 @@ import telegram
 
 from dtb.celery import app
 from celery.utils.log import get_task_logger
-from tgbot.handlers.broadcast_message.utils import _send_message, _from_celery_entities_to_entities, \
+from tgbot.handlers.broadcast_message.utils import send_message, _from_celery_entities_to_entities, \
     _from_celery_markup_to_markup
 
 logger = get_task_logger(__name__)
@@ -31,13 +31,8 @@ def broadcast_message(
     reply_markup_ = _from_celery_markup_to_markup(reply_markup)
     for user_id in user_ids:
         try:
-            _send_message(
-                user_id=user_id,
-                text=text,
-                entities=entities_,
-                parse_mode=parse_mode,
-                reply_markup=reply_markup_,
-            )
+            send_message(user_id=user_id, text=text, parse_mode=parse_mode, reply_markup=reply_markup_,
+                         entities=entities_)
             logger.info(f"Broadcast message was sent to {user_id}")
         except Exception as e:
             logger.error(f"Failed to send message to {user_id}, reason: {e}")

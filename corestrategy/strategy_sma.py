@@ -2,7 +2,7 @@ from pandas import DataFrame
 from typing import List
 
 from corestrategy.settings import SMACrossPeriods
-from corestrategy.utils import save_signal_to_df, _msknow
+from corestrategy.utils import save_signal_to_df, now_msk
 
 
 def sma_cross(actual_short_sma: float,
@@ -36,7 +36,7 @@ def sma_cross(actual_short_sma: float,
             if buy_flag == 1 and sr_last_signal.buy_flag.all() != 1:
                 [df_hist_sgnls, df_actual_signals] = save_signal_to_df(buy_flag=buy_flag, last_price=last_price,
                                                                        figi=figi,
-                                                                       date_time=_msknow(), strategy_id=strategy_id,
+                                                                       date_time=now_msk(), strategy_id=strategy_id,
                                                                        df_shares=df_shares, df=df_hist_sgnls,
                                                                        df_actual_signals=df_actual_signals)
                 df_hist_sgnls.to_csv(
@@ -46,7 +46,7 @@ def sma_cross(actual_short_sma: float,
             elif buy_flag == 0 and sr_last_signal.buy_flag.all() != 0:
                 [df_hist_sgnls, df_actual_signals] = save_signal_to_df(buy_flag=buy_flag, last_price=last_price,
                                                                        figi=figi,
-                                                                       date_time=_msknow(), strategy_id=strategy_id,
+                                                                       date_time=now_msk(), strategy_id=strategy_id,
                                                                        df_shares=df_shares, df=df_hist_sgnls,
                                                                        df_actual_signals=df_actual_signals)
                 df_hist_sgnls.to_csv(
@@ -55,7 +55,7 @@ def sma_cross(actual_short_sma: float,
                 )
         else:
             [df_hist_sgnls, df_actual_signals] = save_signal_to_df(buy_flag=buy_flag, last_price=last_price, figi=figi,
-                                                                   date_time=_msknow(), strategy_id=strategy_id,
+                                                                   date_time=now_msk(), strategy_id=strategy_id,
                                                                    df_shares=df_shares, df=df_hist_sgnls,
                                                                    df_actual_signals=df_actual_signals)
             df_hist_sgnls.to_csv(

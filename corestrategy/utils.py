@@ -4,14 +4,14 @@ from asyncio import sleep as asyncsleep
 from datetime import time, datetime
 from datetime import timedelta as td
 from threading import Event
-from time import perf_counter, monotonic, timezone
+from time import perf_counter, monotonic
 from typing import List, Optional
 
 from dateutil.tz import tzutc
 from pandas import DataFrame, concat
 
 from corestrategy.settings import columns_rsi, columns_sma
-from tgbot.models import Share
+from tgbot.models import Share, MovingAverage
 from tgbot.static_text import sma_50_200_is_chosen, sma_30_90_is_chosen, sma_20_60_is_chosen, rsi_is_chosen
 
 
@@ -65,25 +65,25 @@ class Strategy:
             return rsi_is_chosen
 
 
-def _msknow() -> datetime:
+def now_msk() -> datetime:
     return datetime.now(tz=tzutc()).replace(microsecond=0) + td(hours=3)
 
 
 def is_time_to_download_data() -> bool:
     """Проверяет, подходит ли время для объемной загрузки исторических данных"""
-    value = time(hour=7) < _msknow().time() < time(hour=10)
+    value = time(hour=7) < now_msk().time() < time(hour=10)
     return value
 
 
 def market_is_closed() -> bool:
     """Проверяет, закрыта ли биржа"""
-    if _msknow().isoweekday() == 6:
-        value = time(hour=1, minute=45) < _msknow().time() < time(hour=23, minute=59, second=59)
+    if now_msk().isoweekday() == 6:
+        value = time(hour=1, minute=45) < now_msk().time() < time(hour=23, minute=59, second=59)
         return value
-    elif _msknow().isoweekday() == 7:
+    elif now_msk().isoweekday() == 7:
         return True
     else:
-        value = time(hour=1, minute=45) < _msknow().time() < time(hour=10)
+        value = time(hour=1, minute=45) < now_msk().time() < time(hour=10)
         return value
 
 
@@ -94,37 +94,37 @@ def wait_until_download_time() -> None:
     hours_24 = 86400  # seconds
     hours_48 = 172800  # seconds
 
-    hours_now_in_seconds = _msknow().hour * 3600
-    minutes_now_in_seconds = _msknow().minute * 60
-    seconds_now = _msknow().second
+    hours_now_in_seconds = now_msk().hour * 3600
+    minutes_now_in_seconds = now_msk().minute * 60
+    seconds_now = now_msk().second
 
-    if _msknow().isoweekday() == 6:
+    if now_msk().isoweekday() == 6:
         timeout = hours_7 + hours_48 - (hours_now_in_seconds + minutes_now_in_seconds + seconds_now)
-        print('Strategies wait until 7am Monday. Timeout in seconds:', timeout, 'Now-time:', _msknow())
+        print('Strategies wait until 7am Monday. Timeout in seconds:', timeout, 'Now-time:', now_msk())
         Event().wait(timeout=timeout)
 
-    elif _msknow().isoweekday() == 7:
+    elif now_msk().isoweekday() == 7:
         timeout = hours_7 + hours_24 - (hours_now_in_seconds + minutes_now_in_seconds + seconds_now)
-        print('Strategies wait until 7am Monday. Timeout in seconds:', timeout, 'Now-time:', _msknow())
+        print('Strategies wait until 7am Monday. Timeout in seconds:', timeout, 'Now-time:', now_msk())
         Event().wait(timeout=timeout)
 
     else:
         timeout = hours_7 - (hours_now_in_seconds + minutes_now_in_seconds + seconds_now)
-        print('Strategies wait until 7am today. Timeout in seconds:', timeout, 'Now-time:', _msknow())
+        print('Strategies wait until 7am today. Timeout in seconds:', timeout, 'Now-time:', now_msk())
         Event().wait(timeout=timeout)
 
 
 def wait_until_market_is_open() -> None:
     """Помогает остановить поток до тех пор, пока не откроется биржа"""
 
-    hours_now_in_seconds = _msknow().hour * 3600
-    minutes_now_in_seconds = _msknow().minute * 60
-    seconds_now = _msknow().second
+    hours_now_in_seconds = now_msk().hour * 3600
+    minutes_now_in_seconds = now_msk().minute * 60
+    seconds_now = now_msk().second
 
     timeout = 36000 - (hours_now_in_seconds + minutes_now_in_seconds + seconds_now)
     if timeout < 0:
         timeout = 0
-    print('Strategies wait until 10am today. Timeout in seconds:', timeout, 'Now-time:', _msknow())
+    print('Strategies wait until 10am today. Timeout in seconds:', timeout, 'Now-time:', now_msk())
     Event().wait(timeout=timeout)
 
 
@@ -217,7 +217,7 @@ def start_of_current_day() -> datetime:
     return datetime(today.year, today.month, today.day, tzinfo=tzutc())
 
 
-def historic_data_is_actual(cls, figi: str) -> bool:
+def historic_data_is_actual(cls, figi: str = None, period: int = None) -> bool:
     """Позволяет убедиться, что данные в БД актуальны"""
 
     args = [arg for arg in [figi, period] if arg]
@@ -228,14 +228,10 @@ def historic_data_is_actual(cls, figi: str) -> bool:
     market_hour = start_of_current_day() + td(hours=1, minutes=45)
     return (
             date_time + td(days=1) >= start_of_current_day() + td(hours=1, minutes=45) or
-            _msknow().isoweekday() == 7 and date_time + td(days=2) >= market_hour or
-            _msknow().isoweekday() == 1 and date_time + td(days=3) >= market_hour or
-            _msknow().isoweekday() == 2 and date_time + td(days=4) >= market_hour and time() < _msknow().time() < time(hour=7)
+            now_msk().isoweekday() == 7 and date_time + td(days=2) >= market_hour or
+            now_msk().isoweekday() == 1 and date_time + td(days=3) >= market_hour or
+            now_msk().isoweekday() == 2 and date_time + td(days=4) >= market_hour and time() < now_msk().time() < time(hour=7)
     )
-
-
-def get_figi_list_with_inactual_historic_data(cls) -> List[str]:
-    return list(filter(lambda figi: not historic_data_is_actual(cls, figi=figi), Share.get_figi_list()))
 
 
 def get_n_digits(number):
@@ -317,8 +313,19 @@ def timer(func):
         start = perf_counter()
         result = func(*args, **kwargs)
         runtime = perf_counter() - start
+        print(func, 'took', runtime, 'seconds')
         if result is None:
-            return runtime
+            return
         else:
-            return runtime, result
+            return result
+
     return _wrapper
+
+
+@timer
+def get_figi_list_with_inactual_historic_data(cls, period: int = None) -> List[str]:
+    def apply_filter(figi: str):
+        args = [arg for arg in [period, figi] if arg]
+        return not historic_data_is_actual(cls, *args)
+
+    return list(filter(lambda figi: apply_filter(figi), Share.get_figi_list()))

@@ -42,7 +42,7 @@ def _from_celery_entities_to_entities(celery_entities: Optional[List[Dict]] = No
     return entities
 
 
-def _send_message(
+def send_message(
     user_id: Union[str, int],
     text: str,
     parse_mode: Optional[str] = telegram.ParseMode.HTML,

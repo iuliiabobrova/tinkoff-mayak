@@ -3,7 +3,7 @@ from pandas import DataFrame, read_csv
 from tinkoff.invest import Client
 
 from corestrategy.settings import *
-from corestrategy.utils import _msknow
+from corestrategy.utils import now_msk
 from corestrategy.actual_data_download import get_all_lasts
 from dtb.settings import INVEST_TOKEN
 
@@ -16,7 +16,7 @@ def calc_actual_signals_rsi(figi_list: list,
         if (df_all_lasts.index == figi).any():
             df_figi_close_prices = df_close_prices[f'{figi}'].dropna()[-1:-365:-1][::-1]
             last_price = float(df_all_lasts.loc[figi].last_price)
-            df_figi_close_prices.loc[_msknow()] = last_price
+            df_figi_close_prices.loc[now_msk()] = last_price
 
             # расчет по формуле RSI
             delta = df_figi_close_prices.diff()

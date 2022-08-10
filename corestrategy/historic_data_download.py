@@ -2,21 +2,18 @@
 # В основном используется Сервис Котировок https://tinkoff.github.io/investAPI/marketdata/
 # Figi - это уникальный ID акции
 import asyncio
-from os.path import exists, getmtime
-from threading import Event
 
-from asgiref.sync import sync_to_async
 from dateutil.tz import tzutc
-from pandas import read_csv, to_datetime
 from datetime import datetime, timedelta
 from tinkoff.invest import Client, CandleInterval
+from tqdm import tqdm
 
 from dtb.settings import INVEST_TOKEN
-from corestrategy.hitoric_data_calc import calc_historic_signals_sma, calc_sma, save_historic_signals_rsi
+from corestrategy.hitoric_data_calc import recalc_sma_if_inactual, get_or_calc_sma_historic_signals
 from corestrategy.settings import *
-from corestrategy.utils import historic_data_is_actual, _msknow, retry_with_timeout, Limit, \
+from corestrategy.utils import now_msk, retry_with_timeout, Limit, \
     get_figi_list_with_inactual_historic_data
-from tgbot.models import HistoricCandle, Share, MovingAverage
+from tgbot.models import HistoricCandle, Share
 
 
 @retry_with_timeout(60)
@@ -36,16 +33,16 @@ async def download_candles_by_figi(
         figi: str,
         days: int,
         interval: CandleInterval = CandleInterval.CANDLE_INTERVAL_DAY):
-    """Запрашивает все ОТСУТСТВУЮЩИЕ свечи по ОДНОМУ str(figi)"""
+    """Запрашивает и сохраняет все ОТСУТСТВУЮЩИЕ свечи по ОДНОМУ str(figi)"""
 
-    now_date = _msknow() - timedelta(
-        hours=_msknow().hour - 5,  # TODO почему 5 ?
-        minutes=_msknow().minute,
-        seconds=_msknow().second,
-        microseconds=_msknow().microsecond
+    now_date = now_msk() - timedelta(
+        hours=now_msk().hour - 5,  # TODO почему 5 ?
+        minutes=now_msk().minute,
+        seconds=now_msk().second,
+        microseconds=now_msk().microsecond
     )
     date_from = now_date - timedelta(days=days) + timedelta(days=1)
-    date_to = _msknow() + timedelta(days=1)  # TODO refactor
+    date_to = now_msk() + timedelta(days=1)  # TODO refactor
 
     with Client(INVEST_TOKEN) as client:
         candles = client.get_all_candles(
@@ -54,71 +51,43 @@ async def download_candles_by_figi(
             to=date_to,
             interval=interval,  # запрашиваемая размерность свеч
         )
+        n = 0
         for candle in candles:
+            n += 1
+            print(n)
             await HistoricCandle.async_create(candle=candle, figi=figi, interval='day')
 
 
 async def download_historic_candles(figi_list: List):
-    """Позволяет загрузить исторические свечи из АПИ в БД"""
+    """Позволяет загрузить исторические свечи из API в БД"""
 
     max_days_available_by_api = 366
 
-    print('⏩Downloading historic candles')
-    for figi in figi_list:
+    print('⏩Downloading historic candles for', len(figi_list), 'shares')
+    for i in tqdm(range(len(figi_list))):
+        figi = figi_list[i]
         last_date = await HistoricCandle.get_last_datetime(figi=figi) or \
                     datetime(year=2012, month=1, day=1, tzinfo=tzutc())
-        passed_days = (_msknow() - last_date).days
+        passed_days = (now_msk() - last_date).days
         if passed_days == 0:  # проверка: не запрашиваем ли существующие в CSV данные
             continue
         await download_candles_by_figi(figi=figi, days=passed_days)
         if passed_days > max_days_available_by_api:
-            Event().wait(timeout=3)
+            await asyncio.sleep(delay=3)
 
     print('✅Successfully downloaded and saved historic candles')
 
 
-# проверка sma на актуальность
-def recalc_sma_if_inactual(sma_periods: SMACrossPeriods):
-    if not historic_data_is_actual(MovingAverage):  # TODO check parameter
-        calc_sma(sma_periods=sma_periods)
-
-
-# проверка sma-signals на актуальность
-def get_or_calc_sma_historic_signals(sma_periods: SMACrossPeriods):
-    file_path = f'csv/historic_signals_sma_{sma_periods.short}_{sma_periods.long}.csv'
-    if exists(path=file_path):
-        df = read_csv(
-            filepath_or_buffer=file_path,
-            sep=';',
-            index_col=0,
-            parse_dates=['datetime']
-        )
-        if (historic_data_is_actual(df=df) or
-                (to_datetime(getmtime(file_path) * 1000000000).date() ==
-                 (_msknow() - timedelta(hours=1, minutes=45)).date())):
-            df_historic_signals_sma = df
-        else:
-            df_historic_signals_sma = calc_historic_signals_sma(
-                strategy_id=f'sma_{sma_periods.short}_{sma_periods.long}'
-            )
-    else:
-        df_historic_signals_sma = calc_historic_signals_sma(
-            strategy_id=f'sma_{sma_periods.short}_{sma_periods.long}'
-        )
-
-
 def update_data():
-    """Функция вмещает в себя все функции выше.
-    Задаёт условия, когда необходимо подгружать и рассчитывать исторические данные, а когда нет"""
+    """Функция обновляет все исторические данные: Share, HistoricCandle, MovingAverage, RSI, Signal"""
     print('⏩START DATA CHECK. It can take 2 hours')
 
     download_shares()
     figi_list = get_figi_list_with_inactual_historic_data(HistoricCandle)
     asyncio.run(download_historic_candles(figi_list=figi_list))
-
-    # for periods in sma_cross_periods_all:
-    #     recalc_sma_if_inactual(sma_periods=periods)
-    #     get_or_calc_sma_historic_signals(sma_periods=periods)
+    recalc_sma_if_inactual()
+    for periods in sma_cross_periods_all:
+        get_or_calc_sma_historic_signals(sma_periods=periods)
 
     # # проверка rsi-signals на актуальность
     # if exists(path='csv/historic_signals_rsi.csv'):

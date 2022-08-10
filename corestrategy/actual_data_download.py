@@ -5,11 +5,11 @@ from pandas import DataFrame
 from tinkoff.invest import Client
 
 from dtb.settings import INVEST_TOKEN
-from corestrategy.utils import _msknow
+from corestrategy.utils import now_msk
 
 
 def last_is_actual(last_price) -> bool:
-    _now_ = _msknow() - timedelta(hours=3)
+    _now_ = now_msk() - timedelta(hours=3)
     a = _now_.year == last_price.time.year
     b = _now_.month == last_price.time.month
     c = _now_.day == last_price.time.day
