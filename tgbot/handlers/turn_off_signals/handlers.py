@@ -7,16 +7,16 @@ from tgbot.static_text import (
 )
 from tgbot.models import User, Command
 from tgbot import static_text
-from corestrategy.utils import Strategy
+from tgbot.models import Strategy
 
 
 def command_off(update: Update, context: CallbackContext) -> None:
-    u = User.get_user(update, context)
-    subscriptions = list(map(lambda item: item.strategy_id, u.user_subscriptions()))
+    user = User.get_user(update, context)
+    subscriptions = list(map(lambda item: item.strategy_id, user.user_subscriptions()))
     strategies = list(filter(lambda s: s.strategy_id in subscriptions, Strategy.all()))
 
     if len(strategies) == 1:
-        u.unsubscribe_user_from_all_strategies()
+        user.unsubscribe_user_from_all_strategies()
         update.message.reply_text(static_text.off_signals)
     elif len(strategies) > 0:
         update.message.reply_text(
@@ -31,13 +31,13 @@ def strategy_disconnect(update: Update, context: CallbackContext) -> None:
     query = update.callback_query
     strategy = Strategy(strategy_id=query.data.replace('_disconnect', ''))
 
-    u = User.get_user(update, context)
-    unsubscribed = u.unsubscribe_user_from_strategy(strategy_id=strategy.strategy_id)
+    user = User.get_user(update, context)
+    unsubscribed = user.unsubscribe_user_from_strategy(strategy_id=strategy.strategy_id)
 
     query.answer()
 
     if unsubscribed:
-        Command.record(command_name=f'OFF {strategy.strategy_name}', user_id=u.user_id, username=u.username)
+        user.record_command(command_name=f'OFF {strategy.strategy_name}')
         message_text = strategy_off_signals(strategy.strategy_name)
         query.edit_message_text(text=message_text)
     else:

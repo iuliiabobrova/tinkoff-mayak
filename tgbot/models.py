@@ -14,6 +14,7 @@ from telegram.ext import CallbackContext
 from tinkoff.invest.utils import quotation_to_decimal
 
 from tgbot.handlers.utils.info import extract_user_data_from_update
+from tgbot.static_text import sma_50_200_is_chosen, sma_20_60_is_chosen, rsi_is_chosen, sma_30_90_is_chosen
 from utils.models import CreateUpdateTracker, nb, CreateTracker, GetOrNoneManager
 
 
@@ -37,16 +38,13 @@ class Subscription(CreateTracker):
 class Command(CreateTracker):
     command_id = models.BigAutoField(primary_key=True)
     command_name = models.CharField(max_length=32, **nb)
-    user_id = models.PositiveBigIntegerField()
-    username = models.CharField(max_length=32, **nb)
 
     def __str__(self) -> str:
         return self.command_name
 
     @classmethod
-    def record(cls, command_name: str, user_id: int, username: str):
-        cls.objects.create(command_name=command_name,
-                           user_id=user_id, username=username)
+    def create(cls, command_name: str) -> Command:
+        return cls.objects.create(command_name=command_name)
 
     @classmethod
     def get_command_counter(cls, command_name: str) -> number:
@@ -72,15 +70,10 @@ class User(CreateUpdateTracker):
     language_code = models.CharField(
         max_length=8, help_text="Telegram client's lang", **nb)
     deep_link = models.CharField(max_length=64, **nb)
-
     is_blocked_bot = models.BooleanField(default=False)
-
     is_admin = models.BooleanField(default=False)
-
-    # Под капотом создается таблица связей user_id - id подписки на стратегию
-    # В будущем поможет указывать юзеру несколько стратегий
     subscriptions = models.ManyToManyField(Subscription, blank=True)
-
+    commands = models.ManyToManyField(Command, blank=True)
     objects = GetOrNoneManager()  # user = User.objects.get_or_none(user_id=<some_id>)
     admins = AdminUserManager()  # User.admins.all()
 
@@ -109,6 +102,10 @@ class User(CreateUpdateTracker):
     def get_user(cls, update: Update, context: CallbackContext) -> User:
         u, _ = cls.get_user_and_created(update, context)
         return u
+
+    def record_command(self, command_name: str):
+        command = Command.create(command_name=command_name)
+        self.commands.add(command)
 
     @classmethod
     def get_user_by_username_or_user_id(cls, username_or_user_id: Union[str, int]) -> Optional[User]:
@@ -186,48 +183,43 @@ class FeedbackMessage(CreateTracker):
 
 class HistoricCandle(models.Model):
     id = models.BigAutoField(primary_key=True)
-    open_price = models.DecimalField(max_digits=32, decimal_places=16)
-    high_price = models.DecimalField(max_digits=32, decimal_places=16)
-    low_price = models.DecimalField(max_digits=32, decimal_places=16)
-    close_price = models.DecimalField(max_digits=32, decimal_places=16)
+    open_price = models.DecimalField(max_digits=18, decimal_places=9)
+    high_price = models.DecimalField(max_digits=18, decimal_places=9)
+    low_price = models.DecimalField(max_digits=18, decimal_places=9)
+    close_price = models.DecimalField(max_digits=18, decimal_places=9)
     volume = models.IntegerField()
     date_time = models.DateTimeField()
     figi = models.CharField(max_length=32, **nb)
     interval = models.CharField(max_length=32, **nb)
 
     @classmethod
-    async def async_create(cls, candle: Optional[schemas.HistoricCandle], figi: str, interval: str) -> None:
-        date_time = datetime(
-            year=candle.time.year,
-            month=candle.time.month,
-            day=candle.time.day,
-            tzinfo=tzutc()
-        )
+    async def async_create(cls, candles: List, figi: str, interval: str) -> None:
 
-        if type(candle) == HistoricCandle:
-            await cls.objects.aupdate_or_create(
-                open_price=quotation_to_decimal(candle.open),
-                close_price=quotation_to_decimal(candle.close),
-                high_price=quotation_to_decimal(candle.high),
-                low_price=quotation_to_decimal(candle.low),
-                volume=candle.volume,
-                date_time=date_time,
-                figi=figi,
-                interval=interval
-            )
-        elif type(candle) == QuerySet:
-            for i in candle:
-                
-            await cls.objects.abulk_create(
-                open_price=quotation_to_decimal(candle.open),
-                close_price=quotation_to_decimal(candle.close),
-                high_price=quotation_to_decimal(candle.high),
-                low_price=quotation_to_decimal(candle.low),
-                volume=candle.volume,
-                date_time=date_time,
-                figi=figi,
-                interval=interval
-            )
+        def bulk_queryset_generator(cls, candles: List, figi: str, interval: str) -> QuerySet:
+            for candle in candles:
+                date_time = datetime(
+                    year=candle.time.year,
+                    month=candle.time.month,
+                    day=candle.time.day,
+                    tzinfo=tzutc()
+                )
+                yield cls(
+                    open_price=quotation_to_decimal(candle.open),
+                    close_price=quotation_to_decimal(candle.close),
+                    high_price=quotation_to_decimal(candle.high),
+                    low_price=quotation_to_decimal(candle.low),
+                    volume=candle.volume,
+                    date_time=date_time,
+                    figi=figi,
+                    interval=interval
+                )
+
+        await cls.objects.abulk_create(bulk_queryset_generator(
+            cls=cls,
+            candles=candles,
+            figi=figi,
+            interval=interval
+        ))
 
     @classmethod
     def get_candles_by_figi(cls, figi: str) -> QuerySet[HistoricCandle]:
@@ -250,12 +242,12 @@ class Share(models.Model):
     isin = models.CharField(max_length=32, **nb)
     lot = models.IntegerField(default=1)
     currency = models.CharField(max_length=32, **nb)
-    klong = models.DecimalField(max_digits=32, decimal_places=16)
-    kshort = models.DecimalField(max_digits=32, decimal_places=16)
-    dlong = models.DecimalField(max_digits=32, decimal_places=16)
-    dshort = models.DecimalField(max_digits=32, decimal_places=16)
-    dlong_min = models.DecimalField(max_digits=32, decimal_places=16)
-    dshort_min = models.DecimalField(max_digits=32, decimal_places=16)
+    klong = models.DecimalField(max_digits=18, decimal_places=9)
+    kshort = models.DecimalField(max_digits=18, decimal_places=9)
+    dlong = models.DecimalField(max_digits=18, decimal_places=9)
+    dshort = models.DecimalField(max_digits=18, decimal_places=9)
+    dlong_min = models.DecimalField(max_digits=18, decimal_places=9)
+    dshort_min = models.DecimalField(max_digits=18, decimal_places=9)
     short_enabled_flag = models.BooleanField(default=False)
     name = models.CharField(max_length=32, **nb)
     exchange = models.CharField(max_length=32, **nb)
@@ -356,3 +348,53 @@ class MovingAverage(models.Model):
         if period is not None:
             objects = objects.filter(period=period)
         return max(objects.values_list('date_time', flat=True), default=None)  # TODO SQL SELECT MAX
+
+
+class Strategy:
+    _all_cases = {
+        'rsi': 'RSI',
+        'sma_50_200': 'cross-SMA 50-200',
+        'sma_30_90': 'cross-SMA 30-90',
+        'sma_20_60': 'cross-SMA 20-60'
+    }
+
+    def __init__(self, strategy_id: str, strategy_name: Optional[str] = None):
+        self.strategy_id = strategy_id
+        if strategy_name is None:
+            self.strategy_name = Strategy._all_cases[strategy_id]
+        else:
+            self.strategy_name = strategy_name
+
+    @classmethod
+    def sma_50_200(cls) -> Strategy:
+        return Strategy(strategy_id='sma_50_200')
+
+    @classmethod
+    def sma_30_90(cls) -> Strategy:
+        return Strategy(strategy_id='sma_30_90')
+
+    @classmethod
+    def sma_20_60(cls) -> Strategy:
+        return Strategy(strategy_id='sma_20_60')
+
+    @classmethod
+    def rsi(cls) -> Strategy:
+        return Strategy(strategy_id='rsi')
+
+    @classmethod
+    def all(cls) -> List[Strategy]:
+        return [cls.rsi(), cls.sma_50_200(), cls.sma_30_90(), cls.sma_20_60()]
+
+    @classmethod
+    def name(cls, strategy_id: str) -> str:
+        return cls._all_cases[strategy_id]
+
+    def description(self) -> str:
+        if self.strategy_id.startswith('sma_50_200'):
+            return sma_50_200_is_chosen
+        elif self.strategy_id.startswith('sma_30_90'):
+            return sma_30_90_is_chosen
+        elif self.strategy_id.startswith('sma_20_60'):
+            return sma_20_60_is_chosen
+        elif self.strategy_id.startswith('rsi'):
+            return rsi_is_chosen

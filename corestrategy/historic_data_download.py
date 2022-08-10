@@ -45,17 +45,16 @@ async def download_candles_by_figi(
     date_to = now_msk() + timedelta(days=1)  # TODO refactor
 
     with Client(INVEST_TOKEN) as client:
-        candles = client.get_all_candles(
-            figi=figi,  # сюда должен поступать только один figi (id акции)
-            from_=date_from,  # int, кол-во дней назад
+        candles_generator = client.get_all_candles(
+            figi=figi,
+            from_=date_from,
             to=date_to,
-            interval=interval,  # запрашиваемая размерность свеч
+            interval=interval,  # запрашиваемый интервал свеч
         )
-        n = 0
-        for candle in candles:
-            n += 1
-            print(n)
-            await HistoricCandle.async_create(candle=candle, figi=figi, interval='day')
+        candles_list = []
+        for candle in candles_generator:
+            candles_list += [candle]
+    await HistoricCandle.async_create(candles=candles_list, figi=figi, interval='day')
 
 
 async def download_historic_candles(figi_list: List):

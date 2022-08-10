@@ -6,8 +6,8 @@ from tgbot.models import User, Command
 
 
 def command_str_info(update: Update, context: CallbackContext) -> None:
-    u = User.get_user(update, context)
-    Command.record(command_name="str_info",
-                   user_id=u.user_id, username=u.username)
+    user = User.get_user(update, context)
+    user.record_command(command_name="str_info")
+
     update.message.reply_html(
         static_text.strategy_with_links, disable_web_page_preview=True)

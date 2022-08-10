@@ -7,17 +7,16 @@ from tgbot.models import User, Command
 from tgbot import static_text
 from tgbot.handlers.strategies.utils import get_last_signals
 from tgbot.handlers.strategies.keyboards import make_keyboard_for_signal
-from corestrategy.utils import Strategy
+from tgbot.models import Strategy
 
 
 def strategy_connect(update: Update, context: CallbackContext) -> None:
     query = update.callback_query
     strategy = Strategy(strategy_id=query.data.replace('_connect', ''))
 
-    u = User.get_user(update, context)
-    subscribed = u.subscribe_user_to_strategy(strategy_id=strategy.strategy_id)
-
-    Command.record(command_name=f'ON {strategy.strategy_name}', user_id=u.user_id, username=u.username)
+    user = User.get_user(update, context)
+    subscribed = user.subscribe_user_to_strategy(strategy_id=strategy.strategy_id)
+    user.record_command(command_name=f'ON {strategy.strategy_name}')
     query.answer()
 
     if subscribed:
@@ -40,7 +39,7 @@ def strategy_connect(update: Update, context: CallbackContext) -> None:
 
         for signal in signals:
             query.message.reply_html(
-                text=f"{signal}", reply_markup=make_keyboard_for_signal(u.user_id, signal))
+                text=f"{signal}", reply_markup=make_keyboard_for_signal(user.user_id, signal))
 
     else:
         query.edit_message_text(text=static_text.already_subscribed)

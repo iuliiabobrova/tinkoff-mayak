@@ -39,7 +39,7 @@ from tgbot.handlers.strategy_info import handlers as strategy_info_handlers
 from tgbot.handlers.time import handlers as time_handlers
 from tgbot.handlers.turn_off_signals import handlers as turn_off_signals_handlers
 from tgbot.handlers.utils import files, error
-from corestrategy.utils import Strategy
+from tgbot.models import Strategy
 
 
 def setup_dispatcher(dp):

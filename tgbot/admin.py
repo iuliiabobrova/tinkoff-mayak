@@ -71,8 +71,12 @@ class UserAdmin(admin.ModelAdmin):
             )
 
 
-class UserInline(admin.TabularInline):
+class UserSubscriptionInline(admin.TabularInline):
     model = User.subscriptions.through
+
+
+class UserCommandInline(admin.TabularInline):
+    model = User.commands.through
 
 
 @admin.register(FeedbackMessage)
@@ -84,7 +88,7 @@ class FeedbackMessageAdmin(admin.ModelAdmin):
 class SubscriptionAdmin(admin.ModelAdmin):
     model = Subscription
     inlines = [
-        UserInline
+        UserSubscriptionInline
     ]
     list_display = ['id', 'strategy_id', 'created_at']
     actions = ['broadcast', 'save_csv']
@@ -105,8 +109,10 @@ class SubscriptionAdmin(admin.ModelAdmin):
 
 @admin.register(Command)
 class CommandAdmin(admin.ModelAdmin):
-    list_display = ['command_id', 'command_name',
-                    'user_id', 'username', 'created_at']
+    list_display = ['command_id', 'command_name', 'created_at']
+    inlines = [
+        UserCommandInline
+    ]
     actions = ['broadcast', 'save_csv']
 
     def save_csv(self, request, queryset):

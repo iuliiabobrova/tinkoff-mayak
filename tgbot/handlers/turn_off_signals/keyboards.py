@@ -4,7 +4,7 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
 from tgbot.static_text import unsubscribe_all_button_text
 from tgbot.handlers.turn_off_signals.manage_data import ALL_DISCONNECT_BUTTON
-from corestrategy.utils import Strategy
+from tgbot.models import Strategy
 
 
 def make_keyboard_for_strategies_disconnect(strategies: List[Strategy]) -> InlineKeyboardMarkup:
