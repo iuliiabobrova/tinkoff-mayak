@@ -17,8 +17,8 @@ sma_cross_periods_20_60 = SMACrossPeriods(20, 60)
 period_of_ema = 13  # (дней) значение для расчета экспоненциальной скользящей средней
 
 settings_fix = True  # включает триггер стратегии на все значения %RSI выше upper_rsi_fix и ниже lower_rsi_fix
-upper_rsi_fix = 75
-lower_rsi_fix = 25
+upper_rsi_fix = 80
+lower_rsi_fix = 20
 
 settings_percentile = False  # не может быть True вместе с settings_fix
 upper_rsi_percentile = 95  # 5% самых высоких значений RSI ведут к сигналу
