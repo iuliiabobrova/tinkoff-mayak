@@ -178,7 +178,7 @@ class HistoricCandleAdmin(admin.ModelAdmin):
         'close_price',
         'volume',
         'date_time',
-        'figi',
+        'share',
         'interval'
     ]
 

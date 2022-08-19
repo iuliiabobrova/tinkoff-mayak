@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from decimal import Decimal
 from typing import Union, Optional, Tuple, List
 
 import tinkoff.invest.schemas as schemas
@@ -167,7 +168,7 @@ class FeedbackMessage(CreateTracker):
     id = models.BigAutoField(primary_key=True)
     update_id = models.IntegerField(unique=True)
     text = models.CharField(max_length=4096)
-    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    user = models.ForeignKey(User, on_delete=models.DO_NOTHING)
 
     def __str__(self) -> str:
         return f'{self.text}'
@@ -183,7 +184,7 @@ class FeedbackMessage(CreateTracker):
 
 class Share(models.Model):
     uid = models.CharField(max_length=32)
-    figi = models.CharField(max_length=32, **nb, null=False, primary_key=True)
+    figi = models.CharField(max_length=32, null=False, primary_key=True, unique=True)
     ticker = models.CharField(max_length=32, **nb)
     class_code = models.CharField(max_length=32, **nb)
     isin = models.CharField(max_length=32, **nb)
@@ -263,51 +264,51 @@ class Share(models.Model):
     def get_figi_list(cls):
         return list(cls.objects.values_list('figi', flat=True))
 
-
-class HistoricCandle(models.Model):
-
-    open_price = models.DecimalField(max_digits=18, decimal_places=9)
-    high_price = models.DecimalField(max_digits=18, decimal_places=9)
-    low_price = models.DecimalField(max_digits=18, decimal_places=9)
-    close_price = models.DecimalField(max_digits=18, decimal_places=9)
-    volume = models.IntegerField()
-    date_time = models.DateTimeField()
-    figi = models.ForeignKey(Share, on_delete=PROTECT)
-    interval = models.CharField(max_length=32, **nb)
-
-    def __str__(self):
-        return f"FIGI: {HistoricCandle.figi} in interval {HistoricCandle.interval}" \
-               f"Open_price: {HistoricCandle.open_price}" \
-               f"Close_price: {HistoricCandle.close_price}"
-
     @classmethod
-    async def async_create(cls, candles: List, figi: str, interval: str) -> None:
+    async def async_add_historic_candles(cls, candles: List, figi: str, interval: int):
+        share_object = cls.objects.filter(figi=figi).first()
 
-        def bulk_queryset_generator(cls, candles: List, figi: str, interval: str) -> QuerySet:
-            for candle in candles:
+        def bulk_queryset_generator(_candles: List, _figi: str, _interval: int) -> QuerySet:
+            for candle in _candles:
                 date_time = datetime(
                     year=candle.time.year,
                     month=candle.time.month,
                     day=candle.time.day,
                     tzinfo=tzutc()
                 )
-                yield cls(
+                yield HistoricCandle(
                     open_price=quotation_to_decimal(candle.open),
                     close_price=quotation_to_decimal(candle.close),
                     high_price=quotation_to_decimal(candle.high),
                     low_price=quotation_to_decimal(candle.low),
                     volume=candle.volume,
                     date_time=date_time,
-                    figi=figi,
-                    interval=interval
+                    figi=_figi,
+                    interval=_interval
                 )
 
-        await cls.objects.abulk_create(bulk_queryset_generator(
-            cls=cls,
-            candles=candles,
-            figi=figi,
-            interval=interval
+        await share_object.candles.abulk_create(bulk_queryset_generator(
+            _candles=candles,
+            _figi=figi,
+            _interval=interval
         ))
+
+
+class HistoricCandle(models.Model):
+    id = models.BigAutoField(primary_key=True)
+    open_price = models.DecimalField(max_digits=18, decimal_places=9)
+    high_price = models.DecimalField(max_digits=18, decimal_places=9)
+    low_price = models.DecimalField(max_digits=18, decimal_places=9)
+    close_price = models.DecimalField(max_digits=18, decimal_places=9)
+    volume = models.IntegerField()
+    date_time = models.DateTimeField()
+    share = models.ForeignKey(Share, on_delete=models.CASCADE, related_name='candles', db_index=False)
+    interval = models.IntegerField()
+
+    def __str__(self) -> str:
+        return f"FIGI: {HistoricCandle.figi} in interval {HistoricCandle.interval}" \
+               f"Open_price: {HistoricCandle.open_price}" \
+               f"Close_price: {HistoricCandle.close_price}"
 
     @classmethod
     def get_candles_by_figi(cls, figi: str) -> QuerySet[HistoricCandle]:

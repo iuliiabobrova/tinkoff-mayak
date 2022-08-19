@@ -54,7 +54,7 @@ async def download_candles_by_figi(
         candles_list = []
         for candle in candles_generator:
             candles_list += [candle]
-    await HistoricCandle.async_create(candles=candles_list, figi=figi, interval='day')
+    await Share.async_add_historic_candles(candles=candles_list, figi=figi, interval=interval)
 
 
 async def download_historic_candles(figi_list: List):
