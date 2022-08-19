@@ -7,7 +7,7 @@ import tinkoff.invest.schemas as schemas
 from asgiref.sync import sync_to_async
 from dateutil.tz import tzutc
 from django.db import models
-from django.db.models import QuerySet, Manager
+from django.db.models import QuerySet, Manager, PROTECT
 from numpy import number
 from telegram import Update
 from telegram.ext import CallbackContext
@@ -181,62 +181,9 @@ class FeedbackMessage(CreateTracker):
             user=user, update_id=update.update_id, text=text)
 
 
-class HistoricCandle(models.Model):
-    id = models.BigAutoField(primary_key=True)
-    open_price = models.DecimalField(max_digits=18, decimal_places=9)
-    high_price = models.DecimalField(max_digits=18, decimal_places=9)
-    low_price = models.DecimalField(max_digits=18, decimal_places=9)
-    close_price = models.DecimalField(max_digits=18, decimal_places=9)
-    volume = models.IntegerField()
-    date_time = models.DateTimeField()
-    figi = models.CharField(max_length=32, **nb)
-    interval = models.CharField(max_length=32, **nb)
-
-    @classmethod
-    async def async_create(cls, candles: List, figi: str, interval: str) -> None:
-
-        def bulk_queryset_generator(cls, candles: List, figi: str, interval: str) -> QuerySet:
-            for candle in candles:
-                date_time = datetime(
-                    year=candle.time.year,
-                    month=candle.time.month,
-                    day=candle.time.day,
-                    tzinfo=tzutc()
-                )
-                yield cls(
-                    open_price=quotation_to_decimal(candle.open),
-                    close_price=quotation_to_decimal(candle.close),
-                    high_price=quotation_to_decimal(candle.high),
-                    low_price=quotation_to_decimal(candle.low),
-                    volume=candle.volume,
-                    date_time=date_time,
-                    figi=figi,
-                    interval=interval
-                )
-
-        await cls.objects.abulk_create(bulk_queryset_generator(
-            cls=cls,
-            candles=candles,
-            figi=figi,
-            interval=interval
-        ))
-
-    @classmethod
-    def get_candles_by_figi(cls, figi: str) -> QuerySet[HistoricCandle]:
-        return cls.objects.filter(figi=figi)
-
-    @classmethod
-    @sync_to_async()
-    def get_last_datetime(cls, figi: str = None) -> Optional[datetime]:
-        objects = cls.objects if figi is None else cls.objects.filter(figi=figi)
-        if objects.exists():
-            return objects.latest('date_time').date_time
-        return
-
-
 class Share(models.Model):
-    uid = models.CharField(max_length=32, null=False, primary_key=True)
-    figi = models.CharField(max_length=32, **nb)
+    uid = models.CharField(max_length=32)
+    figi = models.CharField(max_length=32, **nb, null=False, primary_key=True)
     ticker = models.CharField(max_length=32, **nb)
     class_code = models.CharField(max_length=32, **nb)
     isin = models.CharField(max_length=32, **nb)
@@ -315,6 +262,64 @@ class Share(models.Model):
     @classmethod
     def get_figi_list(cls):
         return list(cls.objects.values_list('figi', flat=True))
+
+
+class HistoricCandle(models.Model):
+
+    open_price = models.DecimalField(max_digits=18, decimal_places=9)
+    high_price = models.DecimalField(max_digits=18, decimal_places=9)
+    low_price = models.DecimalField(max_digits=18, decimal_places=9)
+    close_price = models.DecimalField(max_digits=18, decimal_places=9)
+    volume = models.IntegerField()
+    date_time = models.DateTimeField()
+    figi = models.ForeignKey(Share, on_delete=PROTECT)
+    interval = models.CharField(max_length=32, **nb)
+
+    def __str__(self):
+        return f"FIGI: {HistoricCandle.figi} in interval {HistoricCandle.interval}" \
+               f"Open_price: {HistoricCandle.open_price}" \
+               f"Close_price: {HistoricCandle.close_price}"
+
+    @classmethod
+    async def async_create(cls, candles: List, figi: str, interval: str) -> None:
+
+        def bulk_queryset_generator(cls, candles: List, figi: str, interval: str) -> QuerySet:
+            for candle in candles:
+                date_time = datetime(
+                    year=candle.time.year,
+                    month=candle.time.month,
+                    day=candle.time.day,
+                    tzinfo=tzutc()
+                )
+                yield cls(
+                    open_price=quotation_to_decimal(candle.open),
+                    close_price=quotation_to_decimal(candle.close),
+                    high_price=quotation_to_decimal(candle.high),
+                    low_price=quotation_to_decimal(candle.low),
+                    volume=candle.volume,
+                    date_time=date_time,
+                    figi=figi,
+                    interval=interval
+                )
+
+        await cls.objects.abulk_create(bulk_queryset_generator(
+            cls=cls,
+            candles=candles,
+            figi=figi,
+            interval=interval
+        ))
+
+    @classmethod
+    def get_candles_by_figi(cls, figi: str) -> QuerySet[HistoricCandle]:
+        return cls.objects.filter(figi=figi)
+
+    @classmethod
+    @sync_to_async()
+    def get_last_datetime(cls, figi: str = None) -> Optional[datetime]:
+        objects = cls.objects if figi is None else cls.objects.filter(figi=figi)
+        if objects.exists():
+            return objects.latest('date_time').date_time
+        return
 
 
 class MovingAverage(models.Model):
