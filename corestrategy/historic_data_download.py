@@ -6,6 +6,7 @@ import asyncio
 from dateutil.tz import tzutc
 from datetime import datetime, timedelta
 from tinkoff.invest import Client, CandleInterval
+from toolz import unique
 from tqdm import tqdm
 
 from dtb.settings import INVEST_TOKEN
@@ -51,9 +52,8 @@ async def download_candles_by_figi(
             to=date_to,
             interval=interval,  # запрашиваемый интервал свеч
         )
-        candles_list = []
-        for candle in candles_generator:
-            candles_list += [candle]
+        candles_list = list(unique(candles_generator, key=lambda candle: candle.time))
+
     await HistoricCandle.async_create(candles=candles_list, figi=figi, interval='day')
 
 
@@ -82,7 +82,7 @@ def update_data():
     print('⏩START DATA CHECK. It can take 2 hours')
 
     download_shares()
-    figi_list = get_figi_list_with_inactual_historic_data(HistoricCandle)
+    figi_list = get_figi_list_with_inactual_historic_data(HistoricCandle)[:3]
     asyncio.run(download_historic_candles(figi_list=figi_list))
     recalc_sma_if_inactual()
     for periods in sma_cross_periods_all:

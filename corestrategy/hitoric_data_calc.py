@@ -1,8 +1,10 @@
+from decimal import Decimal
 from typing import List
 from datetime import datetime
 from numpy import nanpercentile
 
 from pandas import DataFrame, Series, concat, isna
+from toolz import unique
 
 from corestrategy.settings import (
     std_period, SMACrossPeriods,
@@ -33,21 +35,23 @@ def calc_sma(period: int, figi_list: List):
 
     print('⏩Start calculating SMA-float')
     for figi in figi_list:
-        try:
+
             candles = HistoricCandle.get_candles_by_figi(figi=figi)
             list_close_price = list(map(lambda candle: [candle.close_price], candles))
             list_datetime = list(map(lambda candle: candle.date_time, candles))
+            print('datetime', len(list_datetime), 'close_price:', len(list_close_price))
             df_historic_prices = DataFrame(index=list_datetime, data=list_close_price, columns=['close_price'])
-            df_sma_short = df_historic_prices.rolling(period - 1).mean().dropna().round(3)
-            for index in df_sma_short.index:
+            df_sma = df_historic_prices.rolling(period - 1).mean().dropna().round(3)
+            for index in df_sma.index:
+                print(df_sma.close_price[index])
                 MovingAverage.create(
-                    value=df_sma_short.close_price[index],
+                    value=df_sma.close_price[index],
                     figi=figi,
                     period=period - 1,
                     date_time=index)
 
-        except KeyError:  # TODO убрать try-except логикой
-            print('No data to calc. Figi:', figi)
+        # except KeyError:  # TODO убрать try-except логикой
+        #     print('No data to calc. Figi:', figi)
 
     print('✅Calc of SMA done')
 
@@ -82,55 +86,40 @@ def historic_sma_cross(previous_historic_short_sma: float,
                                                                    strategy_id=strategy_id)
 
 
-def calc_historic_signals_sma_by_figi(figi: str,
-                                      amount_of_rows: int,
-                                      strategy_id: str) -> DataFrame:
+def calc_historic_signals_sma_by_figi(strategy_id: str):
     """Подготавливает данные о [historic_last_price, historic_SMA, historic_date] для функции historic_sma_cross.
     По одному figi"""
 
-    if amount_of_rows >= 20:  # ограничиваем окно подсчета сигналов 20-тью днями
-        amount_of_rows = 20
-
-    for index_of_row in range(-1, -amount_of_rows, -1):
-
-        # подготовка DF с short_SMA и long_SMA по одному figi
-        sr_short_sma = df_all_historic_sma[f'{figi}.short'].dropna()
-        sr_long_sma = df_all_historic_sma[f'{figi}.long'].dropna()
-        if sr_short_sma.size != 0 and sr_long_sma.size != 0:  # проверка на пустой DF
-            historic_short_sma = float(sr_short_sma.loc[sr_short_sma.index[index_of_row]])
-            previous_historic_short_sma = float(sr_short_sma.loc[sr_short_sma.index[index_of_row - 1]])
-            historic_long_sma = float(sr_long_sma.loc[sr_long_sma.index[index_of_row]])
-            previous_historic_long_sma = float(sr_long_sma.loc[sr_long_sma.index[index_of_row - 1]])
-
-            historic_last_price = float(df_fin_close_prices[figi][index_of_row + 1])
-            if historic_last_price != 0:
-                historic_date = sr_long_sma.index[index_of_row]
-                df_historic_signals_sma = historic_sma_cross(
-                    previous_historic_short_sma=previous_historic_short_sma,
-                    previous_historic_long_sma=previous_historic_long_sma,
-                    historic_last_price=historic_last_price,
-                    historic_date=historic_date,
-                    figi=figi,
-                    strategy_id=strategy_id
-                )
-
-
-def calc_historic_signals_sma(df_close_prices: DataFrame,
-                              df_historic_sma: DataFrame,
-                              df_shares: DataFrame,
-                              csv_path: str,
-                              strategy_id: str) -> DataFrame:
-    """Подготовка данных для historic_sma_cross"""
-
-    print(f'⏩Historic signals {strategy_id} calc starts', )
-    for figi in df_historic_sma.columns[::2]:
-        figi = figi[:12]
+    print(f'⏩Historic signals {strategy_id} calc starts')
+    figi_list = list(unique(candles_generator, key=lambda candle: candle.time))  # TODO заменить generator на список объектов MA
+    for figi in figi_list:
         amount_of_rows = df_historic_sma[f'{figi}.long'].dropna().shape[0]
-        df_historic_signals_sma = calc_historic_signals_sma_by_figi(
-            figi=figi,
-            amount_of_rows=amount_of_rows,
-            strategy_id=strategy_id
-        )
+
+        if amount_of_rows >= 20:  # ограничиваем окно подсчета сигналов 20-тью днями
+            amount_of_rows = 20
+
+        for index_of_row in range(-1, -amount_of_rows, -1):
+
+            # подготовка DF с short_SMA и long_SMA по одному figi
+            sr_short_sma = df_all_historic_sma[f'{figi}.short'].dropna()
+            sr_long_sma = df_all_historic_sma[f'{figi}.long'].dropna()
+            if sr_short_sma.size != 0 and sr_long_sma.size != 0:  # проверка на пустой DF
+                historic_short_sma = float(sr_short_sma.loc[sr_short_sma.index[index_of_row]])
+                previous_historic_short_sma = float(sr_short_sma.loc[sr_short_sma.index[index_of_row - 1]])
+                historic_long_sma = float(sr_long_sma.loc[sr_long_sma.index[index_of_row]])
+                previous_historic_long_sma = float(sr_long_sma.loc[sr_long_sma.index[index_of_row - 1]])
+
+                historic_last_price = float(df_fin_close_prices[figi][index_of_row + 1])
+                if historic_last_price != 0:
+                    historic_date = sr_long_sma.index[index_of_row]
+                    df_historic_signals_sma = historic_sma_cross(
+                        previous_historic_short_sma=previous_historic_short_sma,
+                        previous_historic_long_sma=previous_historic_long_sma,
+                        historic_last_price=historic_last_price,
+                        historic_date=historic_date,
+                        figi=figi,
+                        strategy_id=strategy_id
+                    )
 
     print('✅Historic_signals_SMA_are_saved to CSV')
 
