@@ -17,19 +17,20 @@ from corestrategy.utils import now_msk, retry_with_timeout, Limit, \
 from tgbot.models import HistoricCandle, Share
 
 
-@retry_with_timeout(60)
+# @retry_with_timeout(60)
 def download_shares() -> None:
     """Позволяет получить из API список всех акций и их параметров"""
 
     with Client(INVEST_TOKEN) as client:
-        for share in client.instruments.shares().instruments:
-            Share.delete_and_create(share=share)
+        instruments = client.instruments.shares().instruments
+        Share.objects.all().delete()  # TODO удалять только отфильтрованные share
+        Share.bulk_create(share_list=instruments)
 
     print('✅Downloaded list of shares')
 
 
 @Limit(calls=299, period=60)  # API позволяет запрашивать свечи не более 300 раз в минуту
-@retry_with_timeout(60)
+# @retry_with_timeout(60)
 async def download_candles_by_figi(
         figi: str,
         days: int,
@@ -54,7 +55,7 @@ async def download_candles_by_figi(
         )
         candles_list = list(unique(candles_generator, key=lambda candle: candle.time))
 
-    await HistoricCandle.async_create(candles=candles_list, figi=figi, interval='day')
+    await Share.async_bulk_add_hist_candles(candles=candles_list, figi=figi, interval=interval)
 
 
 async def download_historic_candles(figi_list: List):

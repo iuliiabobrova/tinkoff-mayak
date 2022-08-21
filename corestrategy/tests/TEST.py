@@ -3,9 +3,12 @@ from os.path import getmtime
 from pandas import to_datetime, read_csv, errors
 import pandas
 from threading import Event
+import inspect
 
 from queue import Queue
 import time, datetime, threading
+
+from tgbot.models import Share
 
 
 def printer():
@@ -42,23 +45,34 @@ def run_delivery_boy(lst_of_sgnls):
     print("Этот текст напечатается после окончания блокировки")
 
 
-if __name__ == "__main__":
+# if __name__ == "__main__":
+#
+#     q = Queue()
+#
+#     thr_1 = threading.Thread(target=printer)
+#     thr_1.start()
+#
+#     list_of_signals = [(99, "Андрей"),
+#                        (76, "Александр"),
+#                        (75, "Никита"),
+#                        (72, "Евгений"),
+#                        (66, "Алексей"),
+#                        (62, "Сергей"),
+#                        (50, "Михаил")]
+#
+#     for x in range(4):
+#         run_delivery_boy(lst_of_sgnls=list_of_signals)
+#         list_of_signals = [(99, 'XXX')]
 
-    q = Queue()
+def get_attributes_list(cls):
+    """"""
 
-    thr_1 = threading.Thread(target=printer)
-    thr_1.start()
+    for i in inspect.getmembers(cls):
+        if not i[0].startswith('_'):
+            if not inspect.ismethod(i[1]) and i[0] != 'DoesNotExist' 'MultipleObjectsReturned':
+                print(i[0])
 
-    list_of_signals = [(99, "Андрей"),
-                       (76, "Александр"),
-                       (75, "Никита"),
-                       (72, "Евгений"),
-                       (66, "Алексей"),
-                       (62, "Сергей"),
-                       (50, "Михаил")]
 
-    for x in range(4):
-        run_delivery_boy(lst_of_sgnls=list_of_signals)
-        list_of_signals = [(99, 'XXX')]
+get_attributes_list(Share)
 
 

@@ -33,36 +33,31 @@ def calc_std(df_close_prices: DataFrame,
 def calc_sma(period: int, figi_list: List):
     """Считает SMA"""
 
-    print('⏩Start calculating SMA-float')
     for figi in figi_list:
-
-            candles = HistoricCandle.get_candles_by_figi(figi=figi)
-            list_close_price = list(map(lambda candle: [candle.close_price], candles))
-            list_datetime = list(map(lambda candle: candle.date_time, candles))
-            print('datetime', len(list_datetime), 'close_price:', len(list_close_price))
-            df_historic_prices = DataFrame(index=list_datetime, data=list_close_price, columns=['close_price'])
-            df_sma = df_historic_prices.rolling(period - 1).mean().dropna().round(3)
-            for index in df_sma.index:
-                print(df_sma.close_price[index])
-                MovingAverage.create(
-                    value=df_sma.close_price[index],
-                    figi=figi,
-                    period=period - 1,
-                    date_time=index)
-
-        # except KeyError:  # TODO убрать try-except логикой
-        #     print('No data to calc. Figi:', figi)
-
-    print('✅Calc of SMA done')
+        candles = HistoricCandle.get_candles_by_figi(figi=figi)
+        if len(candles) < period:
+            continue
+        list_close_price = list(map(lambda candle: [candle.close_price], candles))
+        list_datetime = list(map(lambda candle: candle.date_time, candles))
+        df_historic_prices = DataFrame(index=list_datetime, data=list_close_price, columns=['close_price'])
+        df_sma = df_historic_prices.rolling(period - 1).mean().dropna().round(3)
+        for index in df_sma.index:
+            MovingAverage.create(
+                value=df_sma.close_price[index],
+                figi=figi,
+                period=period - 1,
+                date_time=index
+            )
 
 
 # проверка sma на актуальность
 def recalc_sma_if_inactual():
+    print('⏩Start calculating SMA-float')
     period_tuples = map(lambda periods: (periods.short, periods.long), sma_cross_periods_all)
     for period in list(sum(period_tuples, ())):
         figi_list = get_figi_list_with_inactual_historic_data(MovingAverage, period=period)
         calc_sma(period=period, figi_list=figi_list)
-        print('✅Calc of SMA done')
+    print('✅Calc of SMA done')
 
 
 def historic_sma_cross(previous_historic_short_sma: float,

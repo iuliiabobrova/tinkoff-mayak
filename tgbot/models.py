@@ -1,14 +1,13 @@
 from __future__ import annotations
 
 from datetime import datetime
-from decimal import Decimal
 from typing import Union, Optional, Tuple, List
 
 import tinkoff.invest.schemas as schemas
 from asgiref.sync import sync_to_async
 from dateutil.tz import tzutc
 from django.db import models
-from django.db.models import QuerySet, Manager, PROTECT
+from django.db.models import QuerySet, Manager
 from numpy import number
 from telegram import Update
 from telegram.ext import CallbackContext
@@ -218,58 +217,67 @@ class Share(models.Model):
     first_1min_candle_date = models.DateTimeField()
     first_1day_candle_date = models.DateTimeField()
 
+    def __str__(self) -> str:
+        return f'figi: {self.figi}'
+
     @classmethod
-    def delete_and_create(cls, share: schemas.Share):
-        record = cls.objects.filter(figi=share.figi)
-        if record.exists():
-            record.delete()
-        cls.objects.create(
-            uid=share.uid,
-            figi=share.figi,
-            ticker=share.ticker,
-            class_code=share.class_code,
-            isin=share.isin,
-            lot=share.lot,
-            currency=share.currency,
-            klong=quotation_to_decimal(share.klong),
-            kshort=quotation_to_decimal(share.kshort),
-            dlong=quotation_to_decimal(share.dlong),
-            dshort=quotation_to_decimal(share.dshort),
-            dlong_min=quotation_to_decimal(share.dlong_min),
-            dshort_min=quotation_to_decimal(share.dshort_min),
-            short_enabled_flag=share.short_enabled_flag,
-            name=share.name,
-            exchange=share.exchange,
-            ipo_date=share.ipo_date,
-            issue_size=share.issue_size,
-            country_of_risk=share.country_of_risk,
-            country_of_risk_name=share.country_of_risk_name,
-            sector=share.sector,
-            issue_size_plan=share.issue_size_plan,
-            trading_status=share.trading_status,
-            otc_flag=share.otc_flag,
-            buy_available_flag=share.buy_available_flag,
-            sell_available_flag=share.sell_available_flag,
-            div_yield_flag=share.div_yield_flag,
-            share_type=share.share_type,
-            min_price_increment=quotation_to_decimal(share.min_price_increment),
-            api_trade_available_flag=share.api_trade_available_flag,
-            position_uid=share.position_uid,
-            for_iis_flag=share.for_iis_flag,
-            first_1min_candle_date=share.first_1min_candle_date,
-            first_1day_candle_date=share.first_1day_candle_date
-        )
+    def bulk_create(cls, share_list: List[schemas.Share]):
+        def _bulk_queryset_generator():
+            for share in share_list:
+                yield Share(
+                    uid=share.uid,
+                    figi=share.figi,
+                    ticker=share.ticker,
+                    class_code=share.class_code,
+                    isin=share.isin,
+                    lot=share.lot,
+                    currency=share.currency,
+                    klong=quotation_to_decimal(share.klong),
+                    kshort=quotation_to_decimal(share.kshort),
+                    dlong=quotation_to_decimal(share.dlong),
+                    dshort=quotation_to_decimal(share.dshort),
+                    dlong_min=quotation_to_decimal(share.dlong_min),
+                    dshort_min=quotation_to_decimal(share.dshort_min),
+                    short_enabled_flag=share.short_enabled_flag,
+                    name=share.name,
+                    exchange=share.exchange,
+                    ipo_date=share.ipo_date,
+                    issue_size=share.issue_size,
+                    country_of_risk=share.country_of_risk,
+                    country_of_risk_name=share.country_of_risk_name,
+                    sector=share.sector,
+                    issue_size_plan=share.issue_size_plan,
+                    trading_status=share.trading_status,
+                    otc_flag=share.otc_flag,
+                    buy_available_flag=share.buy_available_flag,
+                    sell_available_flag=share.sell_available_flag,
+                    div_yield_flag=share.div_yield_flag,
+                    share_type=share.share_type,
+                    min_price_increment=quotation_to_decimal(share.min_price_increment),
+                    api_trade_available_flag=share.api_trade_available_flag,
+                    position_uid=share.position_uid,
+                    for_iis_flag=share.for_iis_flag,
+                    first_1min_candle_date=share.first_1min_candle_date,
+                    first_1day_candle_date=share.first_1day_candle_date
+                )
+        cls.objects.bulk_create(objs=_bulk_queryset_generator())
+
+    @classmethod
+    def bulk_delete(cls, figi_list: List[str]):
+        query = cls.objects.filter(figi__in=figi_list)
+        if query.exists():
+            query.delete()
 
     @classmethod
     def get_figi_list(cls):
         return list(cls.objects.values_list('figi', flat=True))
 
     @classmethod
-    async def async_add_historic_candles(cls, candles: List, figi: str, interval: int):
-        share_object = cls.objects.filter(figi=figi).first()
+    async def async_bulk_add_hist_candles(cls, candles: List, figi: str, interval: int):
+        share = await cls.objects.aget(figi=figi)
 
-        def bulk_queryset_generator(_candles: List, _figi: str, _interval: int) -> QuerySet:
-            for candle in _candles:
+        def _bulk_queryset_generator() -> QuerySet:
+            for candle in candles:
                 date_time = datetime(
                     year=candle.time.year,
                     month=candle.time.month,
@@ -283,41 +291,35 @@ class Share(models.Model):
                     low_price=quotation_to_decimal(candle.low),
                     volume=candle.volume,
                     date_time=date_time,
-                    figi=_figi,
-                    interval=_interval
+                    share=share,
+                    interval=interval
                 )
-
-        await share_object.candles.abulk_create(bulk_queryset_generator(
-            _candles=candles,
-            _figi=figi,
-            _interval=interval
-        ))
+        await HistoricCandle.objects.abulk_create(objs=_bulk_queryset_generator())
 
 
 class HistoricCandle(models.Model):
-    id = models.BigAutoField(primary_key=True)
     open_price = models.DecimalField(max_digits=18, decimal_places=9)
     high_price = models.DecimalField(max_digits=18, decimal_places=9)
     low_price = models.DecimalField(max_digits=18, decimal_places=9)
     close_price = models.DecimalField(max_digits=18, decimal_places=9)
     volume = models.IntegerField()
     date_time = models.DateTimeField()
-    share = models.ForeignKey(Share, on_delete=models.CASCADE, related_name='candles', db_index=False)
+    share = models.ForeignKey(Share, on_delete=models.DO_NOTHING, db_index=False)
     interval = models.IntegerField()
 
     def __str__(self) -> str:
-        return f"FIGI: {HistoricCandle.figi} in interval {HistoricCandle.interval}" \
+        return f"FIGI: {HistoricCandle.share.figi} in interval {HistoricCandle.interval}" \
                f"Open_price: {HistoricCandle.open_price}" \
                f"Close_price: {HistoricCandle.close_price}"
 
     @classmethod
     def get_candles_by_figi(cls, figi: str) -> QuerySet[HistoricCandle]:
-        return cls.objects.filter(figi=figi)
+        return cls.objects.filter(share__figi=figi)
 
     @classmethod
     @sync_to_async()
     def get_last_datetime(cls, figi: str = None) -> Optional[datetime]:
-        objects = cls.objects if figi is None else cls.objects.filter(figi=figi)
+        objects = cls.objects if figi is None else cls.objects.filter(share__figi=figi)
         if objects.exists():
             return objects.latest('date_time').date_time
         return

@@ -2,21 +2,37 @@ import asyncio
 import functools
 from asyncio import sleep as asyncsleep
 from datetime import time, datetime
-from datetime import timedelta as td
+from datetime import timedelta
 from threading import Event
 from time import perf_counter, monotonic
-from typing import List, Optional
+from typing import List
 
 from dateutil.tz import tzutc
 from pandas import DataFrame, concat
 
 from corestrategy.settings import columns_rsi, columns_sma
 from tgbot.models import Share
-from tgbot.static_text import sma_50_200_is_chosen, sma_30_90_is_chosen, sma_20_60_is_chosen, rsi_is_chosen
+
+
+def start_of_current_day() -> datetime:
+    today = datetime.utcnow().date()
+    return datetime(today.year, today.month, today.day, tzinfo=tzutc())
+
+
+def market_close_time(days_offset: int) -> datetime:
+    """1:45 - время закрытия биржи в определенный день.
+    :param days_offset: Временной сдвиг (в днях) от сегодняшнего дня (для вчера = -1, сегодня = 0)"""
+    return start_of_current_day() + timedelta(hours=1, minutes=45) + timedelta(days=days_offset)
+
+
+def market_open_time(days_offset: int) -> datetime:
+    """10:00 - время открытия биржи в определенный день.
+    :param days_offset: Временной сдвиг (в днях) от сегодняшнего дня (для вчера = -1, сегодня = 0)"""
+    return start_of_current_day() + timedelta(hours=10) + timedelta(days=days_offset)
 
 
 def now_msk() -> datetime:
-    return datetime.now(tz=tzutc()).replace(microsecond=0) + td(hours=3)
+    return datetime.now(tz=tzutc()).replace(microsecond=0) + timedelta(hours=3)
 
 
 def is_time_to_download_data() -> bool:
@@ -162,26 +178,46 @@ def save_signal_to_df(buy_flag: int,
     return [df, df_actual_signals]
 
 
-def start_of_current_day() -> datetime:
-    today = datetime.utcnow().date()
-    return datetime(today.year, today.month, today.day, tzinfo=tzutc())
+def days_timedelta_from_last_candle() -> timedelta:
+    """Позволяет определить временной разрыв между актуальной ДНЕВНОЙ свечой и текущим временем"""
+    if now_msk().isoweekday() == 7:
+        return timedelta(days=2)
+    elif now_msk().isoweekday() == 1:
+        return timedelta(days=3)
+    elif now_msk().isoweekday() == 2 and now_msk() < market_close_time(days_offset=0):
+        return timedelta(days=4)
+    else:
+        return timedelta(days=1)
+
+
+def minutes_timedelta_from_last_candle() -> timedelta:  # TODO need test
+    """Позволяет определить временной разрыв между актуальной МИНУТНОЙ свечой и текущим временем"""
+    if market_close_time(days_offset=0) < now_msk() < market_open_time(days_offset=0):  # от закрытия до открытия биржи
+        return now_msk() - market_close_time(days_offset=0)
+    elif now_msk().isoweekday() == 7:  # воскресенье
+        return now_msk() - market_close_time(days_offset=-1)
+    elif now_msk().isoweekday() == 1 and start_of_current_day() < now_msk() < market_open_time(days_offset=0):  # понедельник до открытия биржи
+        return now_msk() - market_close_time(days_offset=-2)
+    else:
+        return now_msk() - (now_msk() - timedelta(minutes=1))  # гэп в 1 минуту = норма
 
 
 def historic_data_is_actual(cls, figi: str = None, period: int = None) -> bool:
-    """Позволяет убедиться, что данные в БД актуальны"""
+    """
+    :param period: передается в случае проверки moving average
+    """
 
     args = [arg for arg in [figi, period] if arg]
-    date_time = asyncio.run(cls.get_last_datetime(*args))
-
-    if date_time is None:
+    last_candle_datetime = asyncio.run(cls.get_last_datetime(*args))
+    if last_candle_datetime is None:
         return False
-    market_hour = start_of_current_day() + td(hours=1, minutes=45)
-    return (
-            date_time + td(days=1) >= start_of_current_day() + td(hours=1, minutes=45) or
-            now_msk().isoweekday() == 7 and date_time + td(days=2) >= market_hour or
-            now_msk().isoweekday() == 1 and date_time + td(days=3) >= market_hour or
-            now_msk().isoweekday() == 2 and date_time + td(days=4) >= market_hour and time() < now_msk().time() < time(hour=7)
-    )
+
+    print('last_candle_datetime', last_candle_datetime)
+    print('days_timedelta_from_last_candle()', days_timedelta_from_last_candle())
+    print('market_close_time(days_offset=0)', market_close_time(days_offset=0))
+    print('last_candle_datetime + days_timedelta_from_last_candle()', last_candle_datetime + days_timedelta_from_last_candle())
+
+    return last_candle_datetime + days_timedelta_from_last_candle() >= market_close_time(days_offset=0)
 
 
 def get_n_digits(number):
