@@ -293,6 +293,7 @@ class Share(models.Model):
                     share=share,
                     interval=interval
                 )
+
         await HistoricCandle.objects.abulk_create(objs=_bulk_queryset_generator())
 
 
