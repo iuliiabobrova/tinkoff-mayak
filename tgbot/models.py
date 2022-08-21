@@ -13,6 +13,7 @@ from telegram import Update
 from telegram.ext import CallbackContext
 from tinkoff.invest.utils import quotation_to_decimal
 
+from corestrategy.utils import get_attributes_list
 from tgbot.handlers.utils.info import extract_user_data_from_update
 from tgbot.static_text import sma_50_200_is_chosen, sma_20_60_is_chosen, rsi_is_chosen, sma_30_90_is_chosen
 from utils.models import CreateUpdateTracker, nb, CreateTracker, GetOrNoneManager
@@ -218,49 +219,47 @@ class Share(models.Model):
     first_1day_candle_date = models.DateTimeField()
 
     def __str__(self) -> str:
-        return f'figi: {self.figi}'
+        return f'figi: {self.figi, self.pk}'
 
     @classmethod
-    def bulk_create(cls, share_list: List[schemas.Share]):
-        def _bulk_queryset_generator():
-            for share in share_list:
-                yield Share(
-                    uid=share.uid,
-                    figi=share.figi,
-                    ticker=share.ticker,
-                    class_code=share.class_code,
-                    isin=share.isin,
-                    lot=share.lot,
-                    currency=share.currency,
-                    klong=quotation_to_decimal(share.klong),
-                    kshort=quotation_to_decimal(share.kshort),
-                    dlong=quotation_to_decimal(share.dlong),
-                    dshort=quotation_to_decimal(share.dshort),
-                    dlong_min=quotation_to_decimal(share.dlong_min),
-                    dshort_min=quotation_to_decimal(share.dshort_min),
-                    short_enabled_flag=share.short_enabled_flag,
-                    name=share.name,
-                    exchange=share.exchange,
-                    ipo_date=share.ipo_date,
-                    issue_size=share.issue_size,
-                    country_of_risk=share.country_of_risk,
-                    country_of_risk_name=share.country_of_risk_name,
-                    sector=share.sector,
-                    issue_size_plan=share.issue_size_plan,
-                    trading_status=share.trading_status,
-                    otc_flag=share.otc_flag,
-                    buy_available_flag=share.buy_available_flag,
-                    sell_available_flag=share.sell_available_flag,
-                    div_yield_flag=share.div_yield_flag,
-                    share_type=share.share_type,
-                    min_price_increment=quotation_to_decimal(share.min_price_increment),
-                    api_trade_available_flag=share.api_trade_available_flag,
-                    position_uid=share.position_uid,
-                    for_iis_flag=share.for_iis_flag,
-                    first_1min_candle_date=share.first_1min_candle_date,
-                    first_1day_candle_date=share.first_1day_candle_date
-                )
-        cls.objects.bulk_create(objs=_bulk_queryset_generator())
+    def bulk_update_or_create(cls, share_list: List[schemas.Share]):
+        for share in share_list:
+            cls.objects.update_or_create(
+                uid=share.uid,
+                figi=share.figi,
+                ticker=share.ticker,
+                class_code=share.class_code,
+                isin=share.isin,
+                lot=share.lot,
+                currency=share.currency,
+                klong=quotation_to_decimal(share.klong),
+                kshort=quotation_to_decimal(share.kshort),
+                dlong=quotation_to_decimal(share.dlong),
+                dshort=quotation_to_decimal(share.dshort),
+                dlong_min=quotation_to_decimal(share.dlong_min),
+                dshort_min=quotation_to_decimal(share.dshort_min),
+                short_enabled_flag=share.short_enabled_flag,
+                name=share.name,
+                exchange=share.exchange,
+                ipo_date=share.ipo_date,
+                issue_size=share.issue_size,
+                country_of_risk=share.country_of_risk,
+                country_of_risk_name=share.country_of_risk_name,
+                sector=share.sector,
+                issue_size_plan=share.issue_size_plan,
+                trading_status=share.trading_status,
+                otc_flag=share.otc_flag,
+                buy_available_flag=share.buy_available_flag,
+                sell_available_flag=share.sell_available_flag,
+                div_yield_flag=share.div_yield_flag,
+                share_type=share.share_type,
+                min_price_increment=quotation_to_decimal(share.min_price_increment),
+                api_trade_available_flag=share.api_trade_available_flag,
+                position_uid=share.position_uid,
+                for_iis_flag=share.for_iis_flag,
+                first_1min_candle_date=share.first_1min_candle_date,
+                first_1day_candle_date=share.first_1day_candle_date
+            )
 
     @classmethod
     def bulk_delete(cls, figi_list: List[str]):
@@ -304,7 +303,7 @@ class HistoricCandle(models.Model):
     close_price = models.DecimalField(max_digits=18, decimal_places=9)
     volume = models.IntegerField()
     date_time = models.DateTimeField()
-    share = models.ForeignKey(Share, on_delete=models.DO_NOTHING, db_index=False)
+    share = models.ForeignKey(Share, on_delete=models.CASCADE, db_index=False)
     interval = models.IntegerField()
 
     def __str__(self) -> str:

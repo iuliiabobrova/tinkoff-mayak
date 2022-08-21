@@ -10,10 +10,8 @@ from toolz import unique
 from tqdm import tqdm
 
 from dtb.settings import INVEST_TOKEN
-from corestrategy.hitoric_data_calc import recalc_sma_if_inactual, get_or_calc_sma_historic_signals
 from corestrategy.settings import *
-from corestrategy.utils import now_msk, retry_with_timeout, Limit, \
-    get_figi_list_with_inactual_historic_data
+from corestrategy.utils import now_msk, retry_with_timeout, Limit, historic_data_is_actual, timer
 from tgbot.models import HistoricCandle, Share
 
 
@@ -23,8 +21,10 @@ def download_shares() -> None:
 
     with Client(INVEST_TOKEN) as client:
         instruments = client.instruments.shares().instruments
-        Share.objects.all().delete()  # TODO удалять только отфильтрованные share
-        Share.bulk_create(share_list=instruments)
+        api_figi_list = list(map(lambda instr: instr.figi, instruments))
+        figi_to_delete_list = list(filter(lambda figi: figi not in api_figi_list, Share.get_figi_list()))
+        Share.bulk_delete(figi_list=figi_to_delete_list)
+        Share.bulk_update_or_create(share_list=instruments)
 
     print('✅Downloaded list of shares')
 
@@ -78,37 +78,10 @@ async def download_historic_candles(figi_list: List):
     print('✅Successfully downloaded and saved historic candles')
 
 
-def update_data():
-    """Функция обновляет все исторические данные: Share, HistoricCandle, MovingAverage, RSI, Signal"""
-    print('⏩START DATA CHECK. It can take 2 hours')
+@timer
+def get_figi_list_with_inactual_historic_data(cls, period: int = None) -> List[str]:
+    def apply_filter(figi: str):
+        args = [arg for arg in [period, figi] if arg]
+        return not historic_data_is_actual(cls, *args)
 
-    download_shares()
-    figi_list = get_figi_list_with_inactual_historic_data(HistoricCandle)[:3]
-    asyncio.run(download_historic_candles(figi_list=figi_list))
-    recalc_sma_if_inactual()
-    for periods in sma_cross_periods_all:
-        get_or_calc_sma_historic_signals(sma_periods=periods)
-
-    # # проверка rsi-signals на актуальность
-    # if exists(path='csv/historic_signals_rsi.csv'):
-    #     df = read_csv(
-    #         filepath_or_buffer='csv/historic_signals_rsi.csv',
-    #         sep=';',
-    #         index_col=0,
-    #         parse_dates=['datetime'],
-    #         low_memory=False
-    #     )
-    #     if historic_data_is_actual(df=df):
-    #         df_historic_signals_rsi = df
-    #         df_rsi = read_csv(
-    #             filepath_or_buffer='csv/rsi.csv',
-    #             sep=';',
-    #             index_col=0
-    #         )
-    #     else:
-    #         save_historic_signals_rsi()
-    # else:
-    #     save_historic_signals_rsi()
-    # calc_std(df_close_prices=df_close_prices) TODO (пока не используется)
-    # calc_profit(df_historic_signals_rsi=df_historic_signals_rsi)  TODO RSI-profit
-    print('✅All data is actual')
+    return list(filter(lambda figi: apply_filter(figi), Share.get_figi_list()))

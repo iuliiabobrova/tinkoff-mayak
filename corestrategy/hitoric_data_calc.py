@@ -11,7 +11,8 @@ from corestrategy.settings import (
     columns_rsi, period_of_ema, lower_rsi_percentile,
     upper_rsi_percentile, sma_cross_periods_all
 )
-from corestrategy.utils import save_signal_to_df, get_figi_list_with_inactual_historic_data
+from corestrategy.utils import save_signal_to_df
+from corestrategy.historic_data_download import get_figi_list_with_inactual_historic_data
 from tgbot.models import HistoricCandle, MovingAverage
 
 

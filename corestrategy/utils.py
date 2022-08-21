@@ -11,7 +11,6 @@ from dateutil.tz import tzutc
 from pandas import DataFrame, concat
 
 from corestrategy.settings import columns_rsi, columns_sma
-from tgbot.models import Share
 
 
 def start_of_current_day() -> datetime:
@@ -308,10 +307,7 @@ def timer(func):
     return _wrapper
 
 
-@timer
-def get_figi_list_with_inactual_historic_data(cls, period: int = None) -> List[str]:
-    def apply_filter(figi: str):
-        args = [arg for arg in [period, figi] if arg]
-        return not historic_data_is_actual(cls, *args)
-
-    return list(filter(lambda figi: apply_filter(figi), Share.get_figi_list()))
+def get_attributes_list(cls):
+    class_name = str(cls).split(sep='.')[-1][:-2]
+    classname_length = len(class_name) + 1
+    return cls.__doc__[classname_length:-1].split(sep=', ')
