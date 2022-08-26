@@ -12,8 +12,6 @@ services:
       - POSTGRES_PASSWORD=postgres
     env_file:
       - ./.env
-    ports:
-      - "5433:5432"
   redis:
     image: redis:alpine
     container_name: dtb_redis
@@ -37,6 +35,7 @@ services:
       - ./.env
     depends_on:
       - web
+    restart: unless-stopped
   celery:
     build: .
     container_name: dtb_celery
