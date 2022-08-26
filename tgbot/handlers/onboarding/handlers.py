@@ -22,7 +22,5 @@ def command_start(update: Update, context: CallbackContext) -> None:
         disclaimer_message.pin()
 
     update.message.reply_html(
-        static_text.greetings,
-        reply_markup=make_keyboard_for_strategies_connect(available_strategies),
-        disable_web_page_preview=True
+        static_text.greetings
     )
