@@ -45,8 +45,13 @@ def strategy_disconnect(update: Update, context: CallbackContext) -> None:
 
 
 def all_disconnect(update: Update, context: CallbackContext) -> None:
-    u = User.get_user(update, context)
-    u.unsubscribe_user_from_all_strategies()
+    user = User.get_user(update, context)
+    subscriptions = list(map(lambda item: item.strategy_id, user.user_subscriptions()))
+    strategies = list(filter(lambda s: s.strategy_id in subscriptions, Strategy.all()))
+    user.unsubscribe_user_from_all_strategies()
+
+    for strategy in strategies:
+        user.record_command(command_name=f'OFF {strategy.strategy_name}')
 
     query = update.callback_query
     query.answer()
