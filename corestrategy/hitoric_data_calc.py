@@ -73,7 +73,9 @@ def calc_sma_new(period: int, figi_list: List[str]):
 def recalc_sma_if_inactual():
     print('⏩Start calculating SMA-float')
     period_tuples = map(lambda periods: (periods.short, periods.long), sma_cross_periods_all)
-    for period in list(sum(period_tuples, ())):
+    periods = list(sum(period_tuples, ()))
+    for period in periods:
+
         figi_list = get_figi_list_with_inactual_historic_data(MovingAverage, period=period)
         calc_sma(period=period, figi_list=figi_list)
     print('✅Calc of SMA done')

@@ -12,7 +12,6 @@ class SMACrossPeriods:
         self.long = long
 
 
-
 sma_cross_periods_50_200_days = SMACrossPeriods(50, 200)
 sma_cross_periods_30_90_days = SMACrossPeriods(30, 90)
 sma_cross_periods_20_60_days = SMACrossPeriods(20, 60)

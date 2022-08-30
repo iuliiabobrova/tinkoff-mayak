@@ -21,14 +21,14 @@ class Signal:
         self.profit = kwargs['profit']
         self.currency = kwargs['currency']
         self.country = kwargs['country']
-        if self.currency=='usd':
+        if self.currency == 'usd':
             self.currency = '$'
-        elif self.currency=='eur':
+        elif self.currency == 'eur':
             self.currency = '€'
-        elif self.currency=='rub':
+        elif self.currency == 'rub':
             self.currency = '₽'
         try:
-            self.last_price = round(self.last_price,2)
+            self.last_price = round(self.last_price, 2)
         except:
             pass
 
@@ -52,9 +52,9 @@ class Signal:
             description = self.strategy_id  # TODO убрать else description = self.strategy_id
 
         return f"{signal}\n" \
-            f"{self.share_name}(<b>{self.ticker}</b>) {self.last_price}<b>{self.currency}</b>\n" \
-            f"{description}\n" \
-            f"🕓{date}"
+               f"{self.share_name}(<b>{self.ticker}</b>) {self.last_price}<b>{self.currency}</b>\n" \
+               f"{description}\n" \
+               f"🕓{date}"
 
     def get_url(self, user_id) -> str:
         return f"http://www.tinkoff.ru/invest/stocks/{self.ticker}?utm_source=mayak_bot&utm_content={user_id}"

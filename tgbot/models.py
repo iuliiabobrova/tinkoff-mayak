@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from datetime import datetime
-from typing import Union, Optional, Tuple, List, Set
+from datetime import datetime, timedelta
+from typing import Union, Optional, Tuple, List, Set, Iterator
 
 import tinkoff.invest.schemas as schemas
 from asgiref.sync import sync_to_async
@@ -277,7 +277,7 @@ class Share(models.Model):
     async def async_bulk_add_hist_candles(cls, candles: List, figi: str, interval: int):
         share = await cls.objects.aget(figi=figi)
 
-        def _bulk_queryset_generator() -> QuerySet:
+        def _bulk_queryset_generator() -> Iterator[HistoricCandle]:
             for candle in candles:
                 date_time = datetime(
                     year=candle.time.year,
