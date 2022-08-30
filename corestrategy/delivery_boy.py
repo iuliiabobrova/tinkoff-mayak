@@ -1,3 +1,5 @@
+import asyncio
+
 from pandas import DataFrame
 from telegram import ParseMode, Bot, error
 
@@ -16,7 +18,7 @@ async def send_signal_to_strategy_subscribers(df: DataFrame) -> None:
     users_with_strategy = await User.get_users_with_strategy_subscription(strategy_id=strategy_id)
     # TODO изменить в базе всех пользователей с подключенной sma на sma_50_200 и удалить if
     if strategy_id == 'sma_50_200':
-        users_with_strategy += list(User.get_users_with_strategy_subscription(strategy_id='sma'))
+        users_with_strategy += await User.get_users_with_strategy_subscription(strategy_id='sma')
 
     user_ids = [user.user_id for user in users_with_strategy]
     for user_id in user_ids:

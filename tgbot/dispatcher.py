@@ -31,7 +31,6 @@ from tgbot.handlers.feedback.manage_data import (
     NEGATIVE_ANSWER_BUTTON,
     ASK_FOR_DETAILED_FEEDBACK_BUTTON
 )
-from tgbot.handlers.location import handlers as location_handlers
 from tgbot.handlers.onboarding import handlers as onboarding_handlers
 from tgbot.handlers.stock import handlers as stock_handlers
 from tgbot.handlers.strategies import handlers as strategies_handlers
