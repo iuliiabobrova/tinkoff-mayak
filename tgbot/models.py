@@ -325,14 +325,29 @@ class HistoricCandle(models.Model):
         return
 
 
-class MovingAverage(models.Model):
+class StandardDeviation(models.Model):
+    id = models.BigAutoField(primary_key=True)
+    share = models.ForeignKey(Share, on_delete=models.CASCADE, db_index=False)
+    value = models.FloatField()
+    period = models.IntegerField()
+
+    @classmethod  # TODO
+    def create(cls, value: float, figi: str, period: int):
+        cls.objects.update_or_create(
+            value=value,
+            figi=figi,
+            period=period
+        )
+
+
+class IndicatorPoint(models.Model):
     id = models.BigAutoField(primary_key=True)
     value = models.FloatField()  # TODO may be models.DecimalField(max_digits=32, decimal_places=16)
-    figi = models.CharField(max_length=32, **nb)
+    share = models.ForeignKey(Share, on_delete=models.CASCADE, db_index=False)
     date_time = models.DateTimeField()
     period = models.IntegerField()
 
-    @classmethod
+    @classmethod  # TODO
     def create(cls, value: float, figi: str, date_time: datetime, period: int):
         cls.objects.update_or_create(
             value=value,
@@ -342,7 +357,7 @@ class MovingAverage(models.Model):
         )
 
     @classmethod
-    def get_figi_ma(cls, figi: str = None, period: int = None) -> QuerySet[MovingAverage]:
+    def get_points_by_figi(cls, figi: str = None, period: int = None) -> QuerySet:
         if period is None:
             objects = cls.objects if figi is None else cls.objects.filter(figi=figi)
         else:
@@ -356,6 +371,14 @@ class MovingAverage(models.Model):
         if period is not None:
             objects = objects.filter(period=period)
         return max(objects.values_list('date_time', flat=True), default=None)  # TODO SQL SELECT MAX
+
+
+class MovingAverage(IndicatorPoint):
+    pass
+
+
+class RelatedStrengthIndex(IndicatorPoint):
+    pass
 
 
 class Strategy:

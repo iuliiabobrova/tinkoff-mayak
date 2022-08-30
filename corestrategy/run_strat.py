@@ -6,7 +6,7 @@ from threading import Event
 from queue import Queue
 from pandas import DataFrame, concat
 
-from corestrategy.hitoric_data_calc import recalc_sma_if_inactual, get_or_calc_sma_historic_signals
+from corestrategy.hitoric_data_calc import recalc_sma_if_inactual, get_or_calc_sma_historic_signals, calc_std_deviation
 from corestrategy.settings import sma_cross_periods_50_200, sma_cross_periods_30_90, \
     sma_cross_periods_20_60, sma_cross_periods_all
 from corestrategy.utils import (is_time_to_download_data,
@@ -21,7 +21,7 @@ from corestrategy.strategy_sma import calc_actual_signals_sma
 from corestrategy.strategy_rsi import calc_actual_signals_rsi
 from corestrategy.delivery_boy import run_delivery_boy
 from corestrategy.settings import columns_rsi
-from tgbot.models import HistoricCandle
+from tgbot.models import HistoricCandle, Share
 
 
 def calc_strategies(
@@ -103,6 +103,9 @@ def update_data():
     for periods in sma_cross_periods_all:
         get_or_calc_sma_historic_signals(sma_periods=periods)
 
+    close_prices =
+    shares = Share.objects.filter(figi__in=figi_list)
+
     # # проверка rsi-signals на актуальность
     # if exists(path='csv/historic_signals_rsi.csv'):
     #     df = read_csv(
@@ -123,7 +126,8 @@ def update_data():
     #         save_historic_signals_rsi()
     # else:
     #     save_historic_signals_rsi()
-    # calc_std(df_close_prices=df_close_prices) TODO (пока не используется)
+
+    calc_std_deviation(figi_list=figi_list)
     # calc_profit(df_historic_signals_rsi=df_historic_signals_rsi)  TODO RSI-profit
     print('✅All data is actual')
 

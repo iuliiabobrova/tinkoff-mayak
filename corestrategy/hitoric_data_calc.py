@@ -13,22 +13,19 @@ from corestrategy.settings import (
 )
 from corestrategy.utils import save_signal_to_df
 from corestrategy.historic_data_download import get_figi_list_with_inactual_historic_data
-from tgbot.models import HistoricCandle, MovingAverage
+from tgbot.models import HistoricCandle, MovingAverage, StandardDeviation
 
 
-def calc_std(df_close_prices: DataFrame,
-             figi_list: List) -> DataFrame:  # TODO refactor на БД
+def calc_std_deviation(figi_list: List[str]):
     """Считает стандартное отклонение"""
-
-    df_price_std = DataFrame()  # пустой DF
     for figi in figi_list:
-        sr_closes = df_close_prices[figi].dropna()  # получаем Series с close_prices для каждого figi
-        std = sr_closes.tail(std_period).pct_change().std().round(3)  # считаем стандартное отклонение
-        df_price_std.loc[figi, "std"] = std  # сохраняем стандартное отклонение в DF
-    df_price_std.to_csv(path_or_buf='csv/std.csv', sep=';')
-    print('✅Calc of STD done')
-
-    return df_price_std
+        candles = HistoricCandle.get_candles_by_figi(figi=figi)
+        if len(candles) < std_period:
+            continue
+        close_prices_series = Series(list(map(lambda candle: [candle.close_price], candles)))
+        std_deviation = close_prices_series.tail(std_period).pct_change().std().round(3)
+        StandardDeviation.create(value=std_deviation, figi=figi, period=std_period)
+    print('✅Calc of standard deviation done')
 
 
 def calc_sma(period: int, figi_list: List):
@@ -38,9 +35,9 @@ def calc_sma(period: int, figi_list: List):
         candles = HistoricCandle.get_candles_by_figi(figi=figi)
         if len(candles) < period:
             continue
-        list_close_price = list(map(lambda candle: [candle.close_price], candles))
-        list_datetime = list(map(lambda candle: candle.date_time, candles))
-        df_historic_prices = DataFrame(index=list_datetime, data=list_close_price, columns=['close_price'])
+        close_prices_list = list(map(lambda candle: [candle.close_price], candles))
+        datetime_list = list(map(lambda candle: candle.date_time, candles))
+        df_historic_prices = DataFrame(index=datetime_list, data=close_prices_list, columns=['close_price'])
         df_sma = df_historic_prices.rolling(period - 1).mean().dropna().round(3)
         for index in df_sma.index:
             MovingAverage.create(
@@ -153,6 +150,22 @@ def calc_one_figi_signals_rsi(sr_rsi: Series,
 def calc_rsi_float(df_close_prices: DataFrame) -> DataFrame:
     """Расчет по формуле RSI"""
 
+    # for figi in figi_list:
+    #     candles = HistoricCandle.get_candles_by_figi(figi=figi)
+    #     if len(candles) < period:
+    #         continue
+    #     close_prices_list = list(map(lambda candle: [candle.close_price], candles))
+    #     datetime_list = list(map(lambda candle: candle.date_time, candles))
+    #     df_historic_prices = DataFrame(index=datetime_list, data=close_prices_list, columns=['close_price'])
+    #     df_sma = df_historic_prices.rolling(period - 1).mean().dropna().round(3)
+    #     for index in df_sma.index:
+    #         MovingAverage.create(
+    #             value=df_sma.close_price[index],
+    #             figi=figi,
+    #             period=period - 1,
+    #             date_time=index
+    #         )
+
     delta = df_close_prices.diff()
     up = delta.clip(lower=0)
     down = -1 * delta.clip(upper=0)
@@ -189,11 +202,16 @@ def calc_historic_signals_rsi(df_close_prices: DataFrame,
         yield df_historic_signals_rsi
 
 
-def save_historic_signals_rsi():
+def save_historic_signals_rsi(df_close_prices: DataFrame,
+                              df_shares: DataFrame):
     """Обеспечивает сохранение сигналов в DataFrame и CSV"""
 
-    df_rsi = calc_rsi_float()
-    list_df = calc_historic_signals_rsi()
+    df_rsi = calc_rsi_float(df_close_prices=df_close_prices)
+    list_df = calc_historic_signals_rsi(
+        df_close_prices=df_close_prices,
+        df_shares=df_shares,
+        df_rsi=df_rsi
+    )
     df_historic_signals_rsi = concat(objs=list_df, ignore_index=True, copy=False)
 
     # Сортировка по дате. В конце самые актуальные сигналы
