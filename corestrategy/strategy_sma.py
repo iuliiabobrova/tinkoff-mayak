@@ -1,3 +1,5 @@
+import asyncio
+
 from pandas import DataFrame
 from typing import List
 
@@ -36,7 +38,7 @@ def sma_cross(actual_short_sma: float,
             if buy_flag == 1 and sr_last_signal.buy_flag.all() != 1:
                 df_hist_sgnls = save_signal_to_df(buy_flag=buy_flag, last_price=last_price, figi=figi, date=_now(),
                                                   strategy_id=strategy_id, df_shares=df_shares, df=df_hist_sgnls)
-                send_signal_to_strategy_subscribers(df=df_hist_sgnls)
+                asyncio.run(send_signal_to_strategy_subscribers(df=df_hist_sgnls))
                 df_hist_sgnls.to_csv(
                     path_or_buf=f'csv/historic_signals_sma_{sma_periods.short}_{sma_periods.long}.csv',
                     sep=';'
@@ -44,7 +46,7 @@ def sma_cross(actual_short_sma: float,
             elif buy_flag == 0 and sr_last_signal.buy_flag.all() != 0:
                 df_hist_sgnls = save_signal_to_df(buy_flag=buy_flag, last_price=last_price, figi=figi, date=_now(),
                                                   strategy_id=strategy_id, df_shares=df_shares, df=df_hist_sgnls)
-                send_signal_to_strategy_subscribers(df=df_hist_sgnls)
+                asyncio.run(send_signal_to_strategy_subscribers(df=df_hist_sgnls))
                 df_hist_sgnls.to_csv(
                     path_or_buf=f'csv/historic_signals_sma_{sma_periods.short}_{sma_periods.long}.csv',
                     sep=';'
@@ -52,7 +54,7 @@ def sma_cross(actual_short_sma: float,
         else:
             df_hist_sgnls = save_signal_to_df(buy_flag=buy_flag, last_price=last_price, figi=figi, date=_now(),
                                               strategy_id=strategy_id, df_shares=df_shares, df=df_hist_sgnls)
-            send_signal_to_strategy_subscribers(df=df_hist_sgnls)
+            asyncio.run(send_signal_to_strategy_subscribers(df=df_hist_sgnls))
             df_hist_sgnls.to_csv(
                 path_or_buf=f'csv/historic_signals_sma_{sma_periods.short}_{sma_periods.long}.csv',
                 sep=';'

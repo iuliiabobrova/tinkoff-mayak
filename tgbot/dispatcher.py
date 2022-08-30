@@ -12,7 +12,7 @@ from telegram.ext import (
     Updater, Dispatcher, Filters,
     CommandHandler, MessageHandler,
     CallbackQueryHandler,
-    ConversationHandler
+    ConversationHandler, ChatMemberHandler
 )
 
 from dtb.celery import app  # event processing in async mode
@@ -35,6 +35,7 @@ from tgbot.handlers.location import handlers as location_handlers
 from tgbot.handlers.onboarding import handlers as onboarding_handlers
 from tgbot.handlers.stock import handlers as stock_handlers
 from tgbot.handlers.strategies import handlers as strategies_handlers
+from tgbot.handlers.turn_off_signals.handlers import chat_member_update_received
 from tgbot.handlers.turn_off_signals.manage_data import RSI_DISCONNECT_BUTTON, ALL_DISCONNECT_BUTTON
 from tgbot.handlers.strategy_info import handlers as strategy_info_handlers
 from tgbot.handlers.time import handlers as time_handlers
@@ -121,6 +122,9 @@ def setup_dispatcher(dp):
 
     # handling errors
     dp.add_error_handler(error.send_stacktrace_to_tg_chat)
+
+    # handling bot-block by user
+    dp.add_handler(ChatMemberHandler(callback=chat_member_update_received))
 
     # EXAMPLES FOR HANDLERS
     # dp.add_handler(MessageHandler(Filters.text, <function_handler>))

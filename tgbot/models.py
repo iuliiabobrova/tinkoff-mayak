@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Union, Optional, Tuple, List
 
+from asgiref.sync import sync_to_async
 from django.db import models
 from django.db.models import QuerySet, Manager
 from numpy import number
@@ -168,8 +169,9 @@ class User(CreateUpdateTracker):
         return cls.objects.filter(username__iexact=username).first()
 
     @classmethod
-    def get_users_with_strategy_subscription(cls, strategy_id: str) -> QuerySet[User]:
-        return cls.objects.filter(subscriptions__strategy_id=strategy_id)
+    @sync_to_async()
+    def get_users_with_strategy_subscription(cls, strategy_id: str) -> List[User]:
+        return list(cls.objects.filter(subscriptions__strategy_id=strategy_id, is_blocked_bot=False))
 
     def subscribe_user_to_strategy(self, strategy_id: str) -> bool:
         # TODO: проверка не понадобится, если разрешим несколько подписок

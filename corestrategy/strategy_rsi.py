@@ -1,3 +1,5 @@
+import asyncio
+
 from pandas import DataFrame
 from numpy import nanpercentile
 
@@ -57,14 +59,14 @@ def calc_actual_signals_rsi(df_shares: DataFrame,
                                                                       figi=figi, date=date, strategy_id='rsi',
                                                                       df_shares=df_shares, df=df_hist_sgnls,
                                                                       rsi_float=rsi)
-                                    send_signal_to_strategy_subscribers(df=df_hist_sgnls)
+                                    asyncio.run(send_signal_to_strategy_subscribers(df=df_hist_sgnls))
                                     df_hist_sgnls.to_csv(path_or_buf='csv/historic_signals_rsi.csv', sep=';')
                                 elif buy_flag == 1:
                                     df_hist_sgnls = save_signal_to_df(buy_flag=buy_flag, last_price=last_price,
                                                                       figi=figi, date=date, strategy_id='rsi',
                                                                       df_shares=df_shares, df=df_hist_sgnls,
                                                                       rsi_float=rsi)
-                                    send_signal_to_strategy_subscribers(df=df_hist_sgnls)
+                                    asyncio.run(send_signal_to_strategy_subscribers(df=df_hist_sgnls))
                                     df_hist_sgnls.to_csv(path_or_buf='csv/historic_signals_rsi.csv', sep=';')
 
                             elif sr_last_signal.buy_flag[0] != buy_flag:
@@ -72,28 +74,28 @@ def calc_actual_signals_rsi(df_shares: DataFrame,
                                     df_hist_sgnls = save_signal_to_df(buy_flag=buy_flag, last_price=last_price, figi=figi,
                                                                       date=date, strategy_id='rsi', df_shares=df_shares,
                                                                       df=df_hist_sgnls, rsi_float=rsi)
-                                    send_signal_to_strategy_subscribers(df=df_hist_sgnls)
+                                    asyncio.run(send_signal_to_strategy_subscribers(df=df_hist_sgnls))
                                     df_hist_sgnls.to_csv(path_or_buf='csv/historic_signals_rsi.csv', sep=';')
                                 elif buy_flag == 1:
                                     df_hist_sgnls = save_signal_to_df(buy_flag=buy_flag, last_price=last_price,
                                                                       figi=figi,
                                                                       date=date, strategy_id='rsi', df_shares=df_shares,
                                                                       df=df_hist_sgnls, rsi_float=rsi)
-                                    send_signal_to_strategy_subscribers(df=df_hist_sgnls)
+                                    asyncio.run(send_signal_to_strategy_subscribers(df=df_hist_sgnls))
                                     df_hist_sgnls.to_csv(path_or_buf='csv/historic_signals_rsi.csv', sep=';')
                         else:
                             if buy_flag == 0 and short_enabled:
                                 df_hist_sgnls = save_signal_to_df(buy_flag=buy_flag, last_price=last_price, figi=figi,
                                                                   date=date, strategy_id='rsi', df_shares=df_shares,
                                                                   df=df_hist_sgnls, rsi_float=rsi)
-                                send_signal_to_strategy_subscribers(df=df_hist_sgnls)
+                                asyncio.run(send_signal_to_strategy_subscribers(df=df_hist_sgnls))
                                 df_hist_sgnls.to_csv(path_or_buf='csv/historic_signals_rsi.csv', sep=';')
                             elif buy_flag == 1:
                                 df_hist_sgnls = save_signal_to_df(buy_flag=buy_flag, last_price=last_price,
                                                                   figi=figi,
                                                                   date=date, strategy_id='rsi', df_shares=df_shares,
                                                                   df=df_hist_sgnls, rsi_float=rsi)
-                                send_signal_to_strategy_subscribers(df=df_hist_sgnls)
+                                asyncio.run(send_signal_to_strategy_subscribers(df=df_hist_sgnls))
                                 df_hist_sgnls.to_csv(path_or_buf='csv/historic_signals_rsi.csv', sep=';')
 
     return df_hist_sgnls

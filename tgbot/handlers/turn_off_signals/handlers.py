@@ -51,3 +51,12 @@ def all_disconnect(update: Update, context: CallbackContext) -> None:
     query.answer()
 
     query.edit_message_text(text=static_text.off_signals)
+
+
+def chat_member_update_received(update: Update, context: CallbackContext):
+    update = update['my_chat_member']['new_chat_member']
+    user_id = update['user']['id']
+    if update['status'] == 'kicked':
+        User.objects.filter(user_id=user_id).update(is_blocked_bot=True)
+    elif update['status'] == 'member':
+        User.objects.filter(user_id=user_id).update(is_blocked_bot=False)
