@@ -15,6 +15,8 @@ from corestrategy.utils import save_signal_to_df
 from corestrategy.historic_data_download import get_figi_list_with_inactual_historic_data
 from tgbot.models import HistoricCandle, MovingAverage, StandardDeviation
 
+from django.db.models import Avg, F, RowRange, Window
+
 
 def calc_std_deviation(figi_list: List[str]):
     """Считает стандартное отклонение"""
@@ -28,7 +30,7 @@ def calc_std_deviation(figi_list: List[str]):
     print('✅Calc of standard deviation done')
 
 
-def calc_sma(period: int, figi_list: List):
+def calc_sma(period: int, figi_list: List[str]):
     """Считает SMA"""
 
     for figi in figi_list:
@@ -47,6 +49,18 @@ def calc_sma(period: int, figi_list: List):
                 date_time=index
             )
 
+
+# todo ТЕСТОВАЯ ФУНКЦИЯ
+def calc_sma_new(period: int, figi_list: List[str]):
+    for figi in figi_list:
+        items = HistoricCandle.objects.filter(figi=figi).annotate(
+            avg=Window(
+                expression=Avg('value'),
+                order_by=F('date_time').asc(),
+                frame=RowRange(start=-period, end=0)
+            )
+        )
+        print(items)
 
 # проверка sma на актуальность
 def recalc_sma_if_inactual():

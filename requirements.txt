@@ -2,17 +2,17 @@ pytz~=2022.1
 requests==2.28.1
 python-dotenv~=0.20.0
 ipython
-pandas~=1.4.3
-numpy~=1.23.1
-tqdm~=4.64.0
+pandas
+numpy
+tqdm
 tinkoff-investments
-tinkoff~=0.1.1
+tinkoff
 
 # Django
-django~=4.1
+django
 django-timezone-field 
 django-cors-headers
-django-debug-toolbar~=3.5.0
+django-debug-toolbar
 whitenoise
 
 # Django 3.0 async requirements
@@ -25,7 +25,7 @@ psycopg2-binary
 dj-database-url
 
 # Distributed tasks
-celery~=5.2.7
+celery
 redis
 django-celery-beat
 

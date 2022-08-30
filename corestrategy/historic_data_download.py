@@ -20,11 +20,13 @@ def download_shares() -> None:
     """Позволяет получить из API список всех акций и их параметров"""
 
     with Client(INVEST_TOKEN) as client:
-        instruments = client.instruments.shares().instruments
-        api_figi_list = list(map(lambda instr: instr.figi, instruments))
-        figi_to_delete_list = list(filter(lambda figi: figi not in api_figi_list, Share.get_figi_list()))
-        Share.bulk_delete(figi_list=figi_to_delete_list)
-        Share.bulk_update_or_create(share_list=instruments)
+        api_share_list = client.instruments.shares().instruments
+
+    api_figi_set = set(share.figi for share in api_share_list)
+    figi_to_delete_set = api_figi_set - set(Share.get_figi_set())
+    print(figi_to_delete_set)
+    Share.bulk_delete(figi_set=figi_to_delete_set)
+    Share.bulk_update_or_create(share_list=api_share_list)
 
     print('✅Downloaded list of shares')
 
@@ -84,4 +86,4 @@ def get_figi_list_with_inactual_historic_data(cls, period: int = None) -> List[s
         args = [arg for arg in [period, figi] if arg]
         return not historic_data_is_actual(cls, *args)
 
-    return list(filter(lambda figi: apply_filter(figi), Share.get_figi_list()))
+    return list(filter(lambda figi: apply_filter(figi), Share.get_figi_set()))

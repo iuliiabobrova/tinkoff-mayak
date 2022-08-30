@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Union, Optional, Tuple, List
+from typing import Union, Optional, Tuple, List, Set
 
 import tinkoff.invest.schemas as schemas
 from asgiref.sync import sync_to_async
@@ -262,14 +262,16 @@ class Share(models.Model):
             )
 
     @classmethod
-    def bulk_delete(cls, figi_list: List[str]):
-        query = cls.objects.filter(figi__in=figi_list)
+    def bulk_delete(cls, figi_set: Set[str]):
+        print('figi_list_to_delete:', figi_set)
+        query = cls.objects.filter(figi__in=figi_set)
+        print('deleting', query)
         if query.exists():
             query.delete()
 
     @classmethod
-    def get_figi_list(cls):
-        return list(cls.objects.values_list('figi', flat=True))
+    def get_figi_set(cls):
+        return set(cls.objects.values_list('figi', flat=True))
 
     @classmethod
     async def async_bulk_add_hist_candles(cls, candles: List, figi: str, interval: int):
@@ -355,6 +357,14 @@ class IndicatorPoint(models.Model):
             date_time=date_time,
             period=period
         )
+
+    @classmethod
+    def bulk_create(cls, list_of_objs: List[MovingAverage]):
+        def bulk_queryset_generator():
+            for obj in list_of_objs:
+                yield MovingAverage(
+
+                )
 
     @classmethod
     def get_points_by_figi(cls, figi: str = None, period: int = None) -> QuerySet:
