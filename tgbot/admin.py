@@ -11,7 +11,7 @@ from tgbot.models import (
     Command,
     HistoricCandle,
     Share,
-    MovingAverage
+    MovingAverage, RelatedStrengthIndex
 )
 from tgbot.forms import BroadcastForm
 
@@ -171,7 +171,6 @@ class ShareAdmin(admin.ModelAdmin):
 @admin.register(HistoricCandle)
 class HistoricCandleAdmin(admin.ModelAdmin):
     list_display = [
-        'id',
         'open_price',
         'high_price',
         'low_price',
@@ -183,11 +182,20 @@ class HistoricCandleAdmin(admin.ModelAdmin):
     ]
 
 
-@admin.register(MovingAverage)
-class MovingAverageAdmin(admin.ModelAdmin):
+class IndicatorPoint(admin.ModelAdmin):
     list_display = [
         'value',
-        'figi',
+        'share',
         'date_time',
         'period'
     ]
+
+
+@admin.register(MovingAverage)
+class MovingAverageAdmin(IndicatorPoint):
+    pass
+
+
+@admin.register(RelatedStrengthIndex)
+class RelatedStrengthIndexAdmin(IndicatorPoint):
+    pass

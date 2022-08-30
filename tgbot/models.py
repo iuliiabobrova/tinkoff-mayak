@@ -13,7 +13,7 @@ from telegram import Update
 from telegram.ext import CallbackContext
 from tinkoff.invest.utils import quotation_to_decimal
 
-from corestrategy.utils import get_attributes_list
+from corestrategy.utils import get_attributes_list, now_msk
 from tgbot.handlers.utils.info import extract_user_data_from_update
 from tgbot.static_text import sma_50_200_is_chosen, sma_20_60_is_chosen, rsi_is_chosen, sma_30_90_is_chosen
 from utils.models import CreateUpdateTracker, nb, CreateTracker, GetOrNoneManager
@@ -296,10 +296,12 @@ class Share(models.Model):
                     interval=interval
                 )
 
+        print(_bulk_queryset_generator())
         await HistoricCandle.objects.abulk_create(objs=_bulk_queryset_generator())
 
 
 class HistoricCandle(models.Model):
+    id = models.BigAutoField(primary_key=True)
     open_price = models.DecimalField(max_digits=18, decimal_places=9)
     high_price = models.DecimalField(max_digits=18, decimal_places=9)
     low_price = models.DecimalField(max_digits=18, decimal_places=9)
@@ -315,8 +317,14 @@ class HistoricCandle(models.Model):
                f"Close_price: {HistoricCandle.close_price}"
 
     @classmethod
-    def get_candles_by_figi(cls, figi: str) -> QuerySet[HistoricCandle]:
-        return cls.objects.filter(share__figi=figi)
+    def get_candles_by_figi(cls, figi: str, time_offset: timedelta, interval: schemas.CandleInterval) -> QuerySet[HistoricCandle]:
+        """
+        :param time_offset: Отступ (в кол-ве свеч назад). Например, для получения 50 последних свечей введи 50.
+        :param figi: Определяет по какой бумаге будут получены свечи.
+        :param interval: Определяет интервал свеч. Например, дневные свечи.
+        """
+        date = now_msk() - time_offset
+        return cls.objects.filter(share__figi=figi, date_time__gt=)
 
     @classmethod
     @sync_to_async()
@@ -333,7 +341,7 @@ class StandardDeviation(models.Model):
     value = models.FloatField()
     period = models.IntegerField()
 
-    @classmethod  # TODO
+    @classmethod  # TODO переписать потом
     def create(cls, value: float, figi: str, period: int):
         cls.objects.update_or_create(
             value=value,
@@ -349,22 +357,8 @@ class IndicatorPoint(models.Model):
     date_time = models.DateTimeField()
     period = models.IntegerField()
 
-    @classmethod  # TODO
-    def create(cls, value: float, figi: str, date_time: datetime, period: int):
-        cls.objects.update_or_create(
-            value=value,
-            figi=figi,
-            date_time=date_time,
-            period=period
-        )
-
-    @classmethod
-    def bulk_create(cls, list_of_objs: List[MovingAverage]):
-        def bulk_queryset_generator():
-            for obj in list_of_objs:
-                yield MovingAverage(
-
-                )
+    class Meta:
+        abstract = True
 
     @classmethod
     def get_points_by_figi(cls, figi: str = None, period: int = None) -> QuerySet:
@@ -380,7 +374,7 @@ class IndicatorPoint(models.Model):
         objects = cls.objects if figi is None else cls.objects.filter(figi=figi)
         if period is not None:
             objects = objects.filter(period=period)
-        return max(objects.values_list('date_time', flat=True), default=None)  # TODO SQL SELECT MAX
+        return max(objects.values_list('date_time', flat=True), default=None)
 
 
 class MovingAverage(IndicatorPoint):
@@ -389,6 +383,15 @@ class MovingAverage(IndicatorPoint):
 
 class RelatedStrengthIndex(IndicatorPoint):
     pass
+
+
+class Signal(models.Model):
+    share = kwargs['share_name']
+    datetime = kwargs['datetime']
+    last_price = kwargs['last_price']
+    buy_flag = kwargs['buy_flag']
+    strategy_id = kwargs['strategy_id']
+    profit = kwargs['profit']
 
 
 class Strategy:

@@ -6,17 +6,30 @@ from threading import Event
 from queue import Queue
 from pandas import DataFrame, concat
 
-from corestrategy.hitoric_data_calc import recalc_sma_if_inactual, get_or_calc_sma_historic_signals, calc_std_deviation
-from corestrategy.settings import sma_cross_periods_50_200, sma_cross_periods_30_90, \
-    sma_cross_periods_20_60, sma_cross_periods_all
-from corestrategy.utils import (is_time_to_download_data,
-                                market_is_closed,
-                                wait_until_download_time,
-                                wait_until_market_is_open,
-                                now_msk)
+from corestrategy.hitoric_data_calc import (
+    recalc_sma_if_inactual,
+    get_or_calc_sma_historic_signals,
+    calc_std_deviation
+)
+from corestrategy.settings import (
+    sma_cross_periods_50_200_days,
+    sma_cross_periods_30_90_days,
+    sma_cross_periods_20_60_days,
+    sma_cross_periods_all
+)
+from corestrategy.utils import (
+    is_time_to_download_data,
+    market_is_closed,
+    wait_until_download_time,
+    wait_until_market_is_open,
+    now_msk
+)
 from corestrategy.actual_data_download import get_all_lasts
-from corestrategy.historic_data_download import download_shares, get_figi_list_with_inactual_historic_data, \
+from corestrategy.historic_data_download import (
+    download_shares,
+    get_figi_list_with_inactual_historic_data,
     download_historic_candles
+)
 from corestrategy.strategy_sma import calc_actual_signals_sma
 from corestrategy.strategy_rsi import calc_actual_signals_rsi
 from corestrategy.delivery_boy import run_delivery_boy
@@ -39,7 +52,7 @@ def calc_strategies(
         n=n,
         df_all_lasts=df_all_lasts,
         df_previous_sma=df_previous_sma_list[0],
-        sma_periods=sma_cross_periods_50_200,
+        sma_periods=sma_cross_periods_50_200_days,
         df_actual_signals=df_actual_signals
     )
     [df_historic_signals_sma_30_90,
@@ -48,7 +61,7 @@ def calc_strategies(
         n=n,
         df_all_lasts=df_all_lasts,
         df_previous_sma=df_previous_sma_list[1],
-        sma_periods=sma_cross_periods_30_90,
+        sma_periods=sma_cross_periods_30_90_days,
         df_actual_signals=df_actual_signals
     )
     [df_historic_signals_sma_20_60,
@@ -57,7 +70,7 @@ def calc_strategies(
         n=n,
         df_all_lasts=df_all_lasts,
         df_previous_sma=df_previous_sma_list[2],
-        sma_periods=sma_cross_periods_20_60,
+        sma_periods=sma_cross_periods_20_60_days,
         df_actual_signals=df_actual_signals
     )
     df_historic_signals_sma_list = [
@@ -103,7 +116,6 @@ def update_data():
     for periods in sma_cross_periods_all:
         get_or_calc_sma_historic_signals(sma_periods=periods)
 
-    close_prices =
     shares = Share.objects.filter(figi__in=figi_list)
 
     # # проверка rsi-signals на актуальность

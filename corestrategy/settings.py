@@ -12,14 +12,15 @@ class SMACrossPeriods:
         self.long = long
 
 
-sma_cross_periods_50_200 = SMACrossPeriods(50, 200)
-sma_cross_periods_30_90 = SMACrossPeriods(30, 90)
-sma_cross_periods_20_60 = SMACrossPeriods(20, 60)
+
+sma_cross_periods_50_200_days = SMACrossPeriods(50, 200)
+sma_cross_periods_30_90_days = SMACrossPeriods(30, 90)
+sma_cross_periods_20_60_days = SMACrossPeriods(20, 60)
 
 sma_cross_periods_all = [
-    sma_cross_periods_50_200,
-    sma_cross_periods_30_90,
-    sma_cross_periods_20_60
+    sma_cross_periods_50_200_days,
+    sma_cross_periods_30_90_days,
+    sma_cross_periods_20_60_days
 ]
 
 """RSI"""

@@ -1,5 +1,5 @@
 from decimal import Decimal
-from typing import List
+from typing import List, Iterator
 from datetime import datetime
 from numpy import nanpercentile
 
@@ -13,7 +13,7 @@ from corestrategy.settings import (
 )
 from corestrategy.utils import save_signal_to_df
 from corestrategy.historic_data_download import get_figi_list_with_inactual_historic_data
-from tgbot.models import HistoricCandle, MovingAverage, StandardDeviation
+from tgbot.models import HistoricCandle, MovingAverage, StandardDeviation, Share
 
 from django.db.models import Avg, F, RowRange, Window
 
@@ -30,27 +30,34 @@ def calc_std_deviation(figi_list: List[str]):
     print('✅Calc of standard deviation done')
 
 
-def calc_sma(period: int, figi_list: List[str]):
+def calc_sma(ma_length: int, figi_list: List[str]):
     """Считает SMA"""
 
     for figi in figi_list:
-        candles = HistoricCandle.get_candles_by_figi(figi=figi)
-        if len(candles) < period:
+        sma_last_datetime = MovingAverage.get_last_datetime(figi=figi)
+        time_offset = sma_last_datetime - datetime(day=, minute=)
+        candles = HistoricCandle.get_candles_by_figi(figi=figi, time_offset=)
+        if len(candles) < ma_length:
             continue
         close_prices_list = list(map(lambda candle: [candle.close_price], candles))
         datetime_list = list(map(lambda candle: candle.date_time, candles))
         df_historic_prices = DataFrame(index=datetime_list, data=close_prices_list, columns=['close_price'])
-        df_sma = df_historic_prices.rolling(period - 1).mean().dropna().round(3)
-        for index in df_sma.index:
-            MovingAverage.create(
-                value=df_sma.close_price[index],
-                figi=figi,
-                period=period - 1,
-                date_time=index
-            )
+        df_sma = df_historic_prices.rolling(ma_length - 1).mean().dropna().round(3)
+
+        def ma_generator() -> Iterator[MovingAverage]:
+            for index in df_sma.index:
+                yield MovingAverage(
+                    value=df_sma.close_price[index],
+                    share=Share.objects.get(figi=figi),
+                    date_time=index,
+                    ma_length=ma_length - 1
+                )
+
+        MovingAverage.objects.abulk_create(objs=ma_generator())
 
 
-# todo ТЕСТОВАЯ ФУНКЦИЯ
+
+# todo ТЕСТОВАЯ ФУНКЦИЯ, нужно доработать
 def calc_sma_new(period: int, figi_list: List[str]):
     for figi in figi_list:
         items = HistoricCandle.objects.filter(figi=figi).annotate(
