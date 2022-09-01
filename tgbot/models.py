@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import Union, Optional, Tuple, List, Set, Iterator
 
 import tinkoff.invest.schemas as schemas
@@ -13,7 +13,6 @@ from telegram import Update
 from telegram.ext import CallbackContext
 from tinkoff.invest.utils import quotation_to_decimal
 
-from corestrategy.utils import get_attributes_list, now_msk
 from tgbot.handlers.utils.info import extract_user_data_from_update
 from tgbot.static_text import sma_50_200_is_chosen, sma_20_60_is_chosen, rsi_is_chosen, sma_30_90_is_chosen
 from utils.models import CreateUpdateTracker, nb, CreateTracker, GetOrNoneManager
@@ -117,6 +116,7 @@ class User(CreateUpdateTracker):
         return cls.objects.filter(username__iexact=username).first()
 
     @classmethod
+    @sync_to_async()
     def get_users_with_strategy_subscription(cls, strategy_id: str) -> QuerySet[User]:
         return cls.objects.filter(subscriptions__strategy_id=strategy_id)
 
@@ -217,6 +217,7 @@ class Share(models.Model):
     for_iis_flag = models.BooleanField(default=False)
     first_1min_candle_date = models.DateTimeField()
     first_1day_candle_date = models.DateTimeField()
+    exists_in_api = models.BooleanField(default=True)
 
     def __str__(self) -> str:
         return f'figi: {self.figi, self.pk}'
@@ -270,8 +271,8 @@ class Share(models.Model):
             query.delete()
 
     @classmethod
-    def get_figi_set(cls):
-        return set(cls.objects.values_list('figi', flat=True))
+    def get_all_figi(cls) -> QuerySet[str]:
+        return cls.objects.filter(exists_in_api=True).values_list('figi', flat=True)
 
     @classmethod
     async def async_bulk_add_hist_candles(cls, candles: List, figi: str, interval: int):
@@ -317,14 +318,21 @@ class HistoricCandle(models.Model):
                f"Close_price: {HistoricCandle.close_price}"
 
     @classmethod
-    def get_candles_by_figi(cls, figi: str, time_offset: timedelta, interval: schemas.CandleInterval) -> QuerySet[HistoricCandle]:
+    def get_candles_by_figi(
+            cls,
+            figi: str,
+            offset: int = None,
+            interval: schemas.CandleInterval = schemas.CandleInterval.CANDLE_INTERVAL_DAY
+    ) -> QuerySet[HistoricCandle]:
         """
-        :param time_offset: Отступ (в кол-ве свеч назад). Например, для получения 50 последних свечей введи 50.
+        :param offset: Отступ (в кол-ве свеч назад). Например, для получения 50 последних свеч введи 50.
         :param figi: Определяет по какой бумаге будут получены свечи.
         :param interval: Определяет интервал свеч. Например, дневные свечи.
         """
-        date = now_msk() - time_offset
-        return cls.objects.filter(share__figi=figi, date_time__gt=)
+        if offset is None:
+            return cls.objects.filter(share__figi=figi, interval=interval)
+        else:
+            return cls.objects.filter(share__figi=figi, interval=interval)[:offset:-1]
 
     @classmethod
     @sync_to_async()
@@ -356,6 +364,7 @@ class IndicatorPoint(models.Model):
     share = models.ForeignKey(Share, on_delete=models.CASCADE, db_index=False)
     date_time = models.DateTimeField()
     period = models.IntegerField()
+    candle_interval = models.IntegerField()
 
     class Meta:
         abstract = True
@@ -371,9 +380,11 @@ class IndicatorPoint(models.Model):
     @classmethod
     @sync_to_async()
     def get_last_datetime(cls, period: int = None, figi: str = None) -> Optional[datetime]:
-        objects = cls.objects if figi is None else cls.objects.filter(figi=figi)
-        if period is not None:
-            objects = objects.filter(period=period)
+        if period is None:
+            objects = cls.objects if figi is None else cls.objects.filter(share__figi=figi)
+        else:
+            objects = cls.objects.filter(period=period) if figi is None else cls.objects.filter(share__figi=figi,
+                                                                                                period=period)
         return max(objects.values_list('date_time', flat=True), default=None)
 
 
@@ -386,12 +397,12 @@ class RelatedStrengthIndex(IndicatorPoint):
 
 
 class Signal(models.Model):
-    share = kwargs['share_name']
-    datetime = kwargs['datetime']
-    last_price = kwargs['last_price']
-    buy_flag = kwargs['buy_flag']
-    strategy_id = kwargs['strategy_id']
-    profit = kwargs['profit']
+    share = models.ForeignKey(Share, on_delete=models.CASCADE, db_index=False)
+    date_time = models.DateTimeField()
+    historic_price = models.DecimalField(max_digits=18, decimal_places=9)
+    buy_flag = models.BooleanField
+    strategy_id = models.CharField(max_length=32, **nb)
+    profit = models.DecimalField(max_digits=5, decimal_places=2, default=0)
 
 
 class Strategy:
@@ -401,29 +412,81 @@ class Strategy:
         'sma_30_90': 'cross-SMA 30-90',
         'sma_20_60': 'cross-SMA 20-60'
     }
+    id_: str
+    name: str
+    period: Union[SMACrossPeriods, int, Tuple]
+    candle_interval: schemas.CandleInterval
 
-    def __init__(self, strategy_id: str, strategy_name: Optional[str] = None):
-        self.strategy_id = strategy_id
-        if strategy_name is None:
-            self.strategy_name = Strategy._all_cases[strategy_id]
+    def __init__(
+            self,
+            id_: str,
+            candle_interval: schemas.CandleInterval.CANDLE_INTERVAL_DAY,
+            period: Union[SMACrossPeriods, int, Tuple],
+            name: Optional[str] = None
+    ):
+        self.id_ = id_
+        if name is None:
+            self.name = Strategy._all_cases[id_]
         else:
-            self.strategy_name = strategy_name
+            self.name = name
+        self.candle_interval = candle_interval
+        self.period = period
+
+    class SMACrossPeriods:
+        def __init__(self, short, long):
+            self.short = short
+            self.long = long
+
+        def __str__(self):
+            print(f"sma_{self.short}_{self.long}")
+
+        @classmethod
+        def sma_50_200(cls) -> Strategy.SMACrossPeriods:
+            return cls(50, 200)
+
+        @classmethod
+        def sma_30_90(cls) -> Strategy.SMACrossPeriods:
+            return cls(30, 90)
+
+        @classmethod
+        def sma_20_60(cls) -> Strategy.SMACrossPeriods:
+            return cls(20, 60)
+
+        @classmethod
+        def all(cls) -> List[Strategy.SMACrossPeriods]:
+            return [cls.sma_50_200(), cls.sma_30_90(), cls.sma_20_60()]
 
     @classmethod
     def sma_50_200(cls) -> Strategy:
-        return Strategy(strategy_id='sma_50_200')
+        return cls(
+            id_='sma_50_200',
+            period=Strategy.SMACrossPeriods.sma_50_200(),
+            candle_interval=schemas.CandleInterval.CANDLE_INTERVAL_DAY
+        )
 
     @classmethod
     def sma_30_90(cls) -> Strategy:
-        return Strategy(strategy_id='sma_30_90')
+        return cls(
+            id_='sma_30_90',
+            period=Strategy.SMACrossPeriods.sma_30_90(),
+            candle_interval=schemas.CandleInterval.CANDLE_INTERVAL_DAY
+        )
 
     @classmethod
     def sma_20_60(cls) -> Strategy:
-        return Strategy(strategy_id='sma_20_60')
+        return cls(
+            id_='sma_20_60',
+            period=Strategy.SMACrossPeriods.sma_20_60(),
+            candle_interval=schemas.CandleInterval.CANDLE_INTERVAL_DAY
+        )
 
     @classmethod
     def rsi(cls) -> Strategy:
-        return Strategy(strategy_id='rsi')
+        return cls(
+            id_='rsi',
+            period=13,
+            candle_interval=schemas.CandleInterval.CANDLE_INTERVAL_DAY
+        )
 
     @classmethod
     def all(cls) -> List[Strategy]:
@@ -434,11 +497,11 @@ class Strategy:
         return cls._all_cases[strategy_id]
 
     def description(self) -> str:
-        if self.strategy_id.startswith('sma_50_200'):
+        if self._id.startswith('sma_50_200'):
             return sma_50_200_is_chosen
-        elif self.strategy_id.startswith('sma_30_90'):
+        elif self._id.startswith('sma_30_90'):
             return sma_30_90_is_chosen
-        elif self.strategy_id.startswith('sma_20_60'):
+        elif self._id.startswith('sma_20_60'):
             return sma_20_60_is_chosen
-        elif self.strategy_id.startswith('rsi'):
+        elif self._id.startswith('rsi'):
             return rsi_is_chosen

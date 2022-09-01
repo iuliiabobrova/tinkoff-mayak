@@ -2,8 +2,7 @@ from pandas import DataFrame
 from numpy import nanpercentile
 from typing import List
 
-from corestrategy.settings import *
-from corestrategy.utils import save_signal_to_df, now_msk
+from corestrategy.utils import now_msk
 
 
 def calc_actual_signals_rsi(df_shares: DataFrame,

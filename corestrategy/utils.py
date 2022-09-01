@@ -5,12 +5,8 @@ from datetime import time, datetime
 from datetime import timedelta
 from threading import Event
 from time import perf_counter, monotonic
-from typing import List
 
 from dateutil.tz import tzutc
-from pandas import DataFrame, concat
-
-from corestrategy.settings import columns_rsi, columns_sma
 
 
 def start_of_current_day() -> datetime:
@@ -93,91 +89,7 @@ def wait_until_market_is_open() -> None:
     Event().wait(timeout=timeout)
 
 
-def save_signal_to_df(buy_flag: int,
-                      last_price: float,
-                      figi: str,
-                      date_time: datetime,
-                      strategy_id: str,
-                      df_shares: DataFrame,
-                      df: DataFrame,  # historic_signals
-                      df_actual_signals: DataFrame = None,
-                      rsi_float: float = None) -> List:
-    """Помогает сохранить множество строк с сигналами в один DataFrame"""
-
-    profit = 0  # profit рассчитывается функцией calc_profit_sma() позже
-    ticker = df_shares.loc[df_shares.index == figi].ticker[0]
-    share_name = df_shares.loc[df_shares.index == figi].name[0]
-    currency = df_shares.loc[df_shares.index == figi].currency[0]
-    country = df_shares.loc[df_shares.index == figi].country_of_risk[0]
-    if strategy_id.startswith('sma'):
-        df = concat(
-            objs=[df, (DataFrame(data=[[figi,
-                                        ticker,
-                                        share_name,
-                                        date_time,
-                                        last_price,
-                                        buy_flag,
-                                        strategy_id,
-                                        profit,
-                                        currency,
-                                        country]],
-                                 columns=columns_sma))],
-            ignore_index=True,
-            copy=False)
-    if strategy_id.startswith('rsi'):
-        df = concat(
-            objs=[df, (DataFrame(data=[[figi,
-                                        ticker,
-                                        share_name,
-                                        date_time,
-                                        last_price,
-                                        rsi_float,
-                                        buy_flag,
-                                        strategy_id,
-                                        profit,
-                                        currency,
-                                        country]],
-                                 columns=columns_rsi))],
-            ignore_index=True,
-            copy=False)
-
-    if df_actual_signals is not None:
-        if strategy_id.startswith('sma'):
-            df_actual_signals = concat(
-                objs=[df_actual_signals, (DataFrame(data=[[figi,
-                                                           ticker,
-                                                           share_name,
-                                                           date_time,
-                                                           last_price,
-                                                           buy_flag,
-                                                           strategy_id,
-                                                           profit,
-                                                           currency,
-                                                           country]],
-                                                    columns=columns_sma))],
-                ignore_index=True,
-                copy=False)
-        if strategy_id.startswith('rsi'):
-            df_actual_signals = concat(
-                objs=[df_actual_signals, (DataFrame(data=[[figi,
-                                                           ticker,
-                                                           share_name,
-                                                           date_time,
-                                                           last_price,
-                                                           rsi_float,
-                                                           buy_flag,
-                                                           strategy_id,
-                                                           profit,
-                                                           currency,
-                                                           country]],
-                                                    columns=columns_rsi))],
-                ignore_index=True,
-                copy=False)
-
-    return [df, df_actual_signals]
-
-
-def days_timedelta_from_last_candle() -> timedelta:
+def normal_timedelta_from_last_candle() -> timedelta:
     """Позволяет определить временной разрыв между актуальной ДНЕВНОЙ свечой и текущим временем"""
     if now_msk().isoweekday() == 7:
         return timedelta(days=2)
@@ -193,9 +105,10 @@ def minutes_timedelta_from_last_candle() -> timedelta:  # TODO need test
     """Позволяет определить временной разрыв между актуальной МИНУТНОЙ свечой и текущим временем"""
     if market_close_time(days_offset=0) < now_msk() < market_open_time(days_offset=0):  # от закрытия до открытия биржи
         return now_msk() - market_close_time(days_offset=0)
-    elif now_msk().isoweekday() == 7:  # воскресенье
+    elif now_msk().isoweekday() == 7:  # если воскресенье
         return now_msk() - market_close_time(days_offset=-1)
-    elif now_msk().isoweekday() == 1 and start_of_current_day() < now_msk() < market_open_time(days_offset=0):  # понедельник до открытия биржи
+    elif now_msk().isoweekday() == 1 and start_of_current_day() < now_msk() < market_open_time(days_offset=0):
+        # если понедельник, время до открытия биржи
         return now_msk() - market_close_time(days_offset=-2)
     else:
         return now_msk() - (now_msk() - timedelta(minutes=1))  # гэп в 1 минуту = норма
@@ -203,7 +116,10 @@ def minutes_timedelta_from_last_candle() -> timedelta:  # TODO need test
 
 def historic_data_is_actual(cls, figi: str = None, period: int = None) -> bool:
     """
-    :param period: передается в случае проверки moving average
+    :param cls: класс, таблица которого проверяется на актуальность.
+    :param figi: figi акции, которая проверяется в таблице. Если figi не задан, проверяются все figi.
+    :param period: передается для проверки только определенного периода индикатора.
+    Если не задан, будут проверены все периоды индикатора в таблице.
     """
 
     args = [arg for arg in [figi, period] if arg]
@@ -211,35 +127,12 @@ def historic_data_is_actual(cls, figi: str = None, period: int = None) -> bool:
     if last_candle_datetime is None:
         return False
 
-    print('last_candle_datetime', last_candle_datetime)
-    print('days_timedelta_from_last_candle()', days_timedelta_from_last_candle())
-    print('market_close_time(days_offset=0)', market_close_time(days_offset=0))
-    print('last_candle_datetime + days_timedelta_from_last_candle()', last_candle_datetime + days_timedelta_from_last_candle())
+    print('last_candle_datetime', last_candle_datetime)  # TODO delete
+    print('days_timedelta_from_last_candle()', normal_timedelta_from_last_candle())  # TODO delete
+    print('market_close_time(days_offset=0)', market_close_time(days_offset=0))  # TODO delete
+    print('last_candle_datetime + days_timedelta_from_last_candle()', last_candle_datetime + normal_timedelta_from_last_candle())  # TODO delete
 
-    return last_candle_datetime + days_timedelta_from_last_candle() >= market_close_time(days_offset=0)
-
-
-def get_n_digits(number):
-    """Помогает определить количество знаков после точки в number"""
-
-    s = str(number)
-    if '.' in s:
-        return abs(s.find('.') - len(s)) - 1
-    else:
-        return 0
-
-
-def convert_string_price_into_int_or_float(price: str) -> float or int:
-    """Помогает конвертировать str в int или float"""
-
-    n_digits = get_n_digits(price)
-    if float(price) // 1 == float(price):
-        price = int(float(price))
-    elif price == 0 or price is None:
-        price = 0
-    else:
-        price = round(float(price), n_digits)
-    return price
+    return last_candle_datetime + normal_timedelta_from_last_candle() >= market_close_time(days_offset=0)
 
 
 class Limit(object):

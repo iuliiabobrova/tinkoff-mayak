@@ -1,8 +1,8 @@
 from pandas import DataFrame
 from typing import List
 
-from corestrategy.settings import SMACrossPeriods
-from corestrategy.utils import save_signal_to_df, now_msk
+from corestrategy.utils import now_msk
+from tgbot.models import Strategy
 
 
 def sma_cross(actual_short_sma: float,
@@ -12,7 +12,7 @@ def sma_cross(actual_short_sma: float,
               df_shares: DataFrame,
               df_previous_sma: DataFrame,
               df_hist_sgnls: DataFrame,
-              sma_periods: SMACrossPeriods,
+              sma_periods: Strategy.SMACrossPeriods,
               df_actual_signals: DataFrame) -> List:
     """Функция считает, пересекаются ли скользящие средние, а далее формирует и сохраняет сигнал"""
 
@@ -72,7 +72,7 @@ def calc_actual_signals_sma(n: int,
                             df_all_lasts: DataFrame,
                             df_historic_sma: DataFrame,
                             df_previous_sma: DataFrame,
-                            sma_periods: SMACrossPeriods,
+                            sma_periods: Strategy.SMACrossPeriods,
                             df_actual_signals: DataFrame) -> List[DataFrame]:
     """Функция получает из SMA.csv исторические скользящие средние. Далее по ластам считает актуальные скользящие.
     Все данные в итоге подаёт на вход def sma_cross"""

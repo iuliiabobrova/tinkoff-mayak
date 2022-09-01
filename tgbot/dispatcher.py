@@ -89,7 +89,7 @@ def setup_dispatcher(dp):
         "str_info", strategy_info_handlers.command_str_info))
 
     # handle strategy choice
-    strategy_ids = list(map(lambda s: s.strategy_id, Strategy.all()))
+    strategy_ids = [strategy.id_ for strategy in Strategy.all()]
     for identifier in strategy_ids:
         dp.add_handler(CallbackQueryHandler(
             strategies_handlers.strategy_connect, pattern=f"^{identifier}_connect$"))
@@ -153,7 +153,7 @@ def run_pooling():
     updater.idle()
 
 
-# Global variable - best way I found to init Telegram bot
+# Global variable - the best way I found to init Telegram bot
 bot = Bot(TELEGRAM_TOKEN)
 try:
     TELEGRAM_BOT_USERNAME = bot.get_me()["username"]

@@ -5,17 +5,12 @@ from time import perf_counter
 from threading import Event
 from queue import Queue
 from pandas import DataFrame, concat
+from tinkoff.invest import CandleInterval
 
 from corestrategy.hitoric_data_calc import (
     recalc_sma_if_inactual,
-    get_or_calc_sma_historic_signals,
-    calc_std_deviation
-)
-from corestrategy.settings import (
-    sma_cross_periods_50_200_days,
-    sma_cross_periods_30_90_days,
-    sma_cross_periods_20_60_days,
-    sma_cross_periods_all
+    calc_std_deviation,
+    calc_historic_signals_sma
 )
 from corestrategy.utils import (
     is_time_to_download_data,
@@ -33,8 +28,7 @@ from corestrategy.historic_data_download import (
 from corestrategy.strategy_sma import calc_actual_signals_sma
 from corestrategy.strategy_rsi import calc_actual_signals_rsi
 from corestrategy.delivery_boy import run_delivery_boy
-from corestrategy.settings import columns_rsi
-from tgbot.models import HistoricCandle, Share
+from tgbot.models import HistoricCandle, Share, Strategy
 
 
 def calc_strategies(
@@ -52,7 +46,7 @@ def calc_strategies(
         n=n,
         df_all_lasts=df_all_lasts,
         df_previous_sma=df_previous_sma_list[0],
-        sma_periods=sma_cross_periods_50_200_days,
+        sma_periods=sma_cross_periods_50_200,
         df_actual_signals=df_actual_signals
     )
     [df_historic_signals_sma_30_90,
@@ -61,7 +55,7 @@ def calc_strategies(
         n=n,
         df_all_lasts=df_all_lasts,
         df_previous_sma=df_previous_sma_list[1],
-        sma_periods=sma_cross_periods_30_90_days,
+        sma_periods=sma_cross_periods_30_90,
         df_actual_signals=df_actual_signals
     )
     [df_historic_signals_sma_20_60,
@@ -70,7 +64,7 @@ def calc_strategies(
         n=n,
         df_all_lasts=df_all_lasts,
         df_previous_sma=df_previous_sma_list[2],
-        sma_periods=sma_cross_periods_20_60_days,
+        sma_periods=sma_cross_periods_20_60,
         df_actual_signals=df_actual_signals
     )
     df_historic_signals_sma_list = [
@@ -105,16 +99,16 @@ def calc_strategies(
     return [df_previous_sma_list, n, queue]
 
 
-def update_data():
+async def update_data():
     """Функция обновляет все исторические данные: Share, HistoricCandle, MovingAverage, RSI, Signal"""
     print('⏩START DATA CHECK. It can take 2 hours')
 
     download_shares()
     figi_list = get_figi_list_with_inactual_historic_data(HistoricCandle)[:3]
     asyncio.run(download_historic_candles(figi_list=figi_list))
-    recalc_sma_if_inactual()
-    for periods in sma_cross_periods_all:
-        get_or_calc_sma_historic_signals(sma_periods=periods)
+    await recalc_sma_if_inactual()
+    for periods in Strategy.SMACrossPeriods.all():
+        calc_historic_signals_sma(periods=periods, figi_list=figi_list, interval=CandleInterval.CANDLE_INTERVAL_DAY)
 
     shares = Share.objects.filter(figi__in=figi_list)
 
@@ -150,7 +144,7 @@ def run_strategies() -> None:
     n = 0
     queue1 = Queue()
 
-    update_data()
+    asyncio.create_task(update_data())  # TODO check async
 
     # Пустые DataFrame
     df_previous_sma_50_200 = DataFrame(columns=['previous_short_sma', 'previous_long_sma'])
