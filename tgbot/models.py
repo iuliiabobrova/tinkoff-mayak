@@ -427,7 +427,7 @@ class Strategy:
             self,
             id_: str,
             candle_interval: schemas.CandleInterval.CANDLE_INTERVAL_DAY,
-            period: Union[SMACrossPeriods, int, Tuple],
+            period: Union[SMACross.Periods, int, Tuple],
             name: Optional[str] = None
     ):
         self.id_ = id_
@@ -438,29 +438,31 @@ class Strategy:
         self.candle_interval = candle_interval
         self.period = period
 
-    class SMACrossPeriods:
-        def __init__(self, short, long):
-            self.short = short
-            self.long = long
+    class SMACross:
+        class Periods:
+            def __init__(self, short, long):
+                self.short = short
+                self.long = long
 
-        def __str__(self):
-            print(f"sma_{self.short}_{self.long}")
+            def __str__(self):
+                return f"sma_{self.short}_{self.long}"
 
-        @classmethod
-        def sma_50_200(cls) -> Strategy.SMACrossPeriods:
-            return cls(50, 200)
+            @classmethod
+            def sma_50_200(cls) -> Strategy.SMACross.Periods:
+                return cls(50, 200)
 
-        @classmethod
-        def sma_30_90(cls) -> Strategy.SMACrossPeriods:
-            return cls(30, 90)
+            @classmethod
+            def sma_30_90(cls) -> Strategy.SMACross.Periods:
+                return cls(30, 90)
 
-        @classmethod
-        def sma_20_60(cls) -> Strategy.SMACrossPeriods:
-            return cls(20, 60)
+            @classmethod
+            def sma_20_60(cls) -> Strategy.SMACross.Periods:
+                return cls(20, 60)
 
-        @classmethod
-        def all(cls) -> List[Strategy.SMACrossPeriods]:
-            return [cls.sma_50_200(), cls.sma_30_90(), cls.sma_20_60()]
+            @classmethod
+            def all(cls) -> List[Strategy.SMACross.Periods]:
+                return [cls.sma_50_200(), cls.sma_30_90(), cls.sma_20_60()]
+
 
     @classmethod
     def sma_50_200(cls) -> Strategy:
