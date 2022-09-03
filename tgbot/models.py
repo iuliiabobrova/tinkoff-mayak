@@ -223,43 +223,46 @@ class Share(models.Model):
         return f'figi: {self.figi, self.pk}'
 
     @classmethod
+    @sync_to_async()
     def bulk_update_or_create(cls, share_list: List[schemas.Share]):
         for share in share_list:
             cls.objects.update_or_create(
-                uid=share.uid,
                 figi=share.figi,
-                ticker=share.ticker,
-                class_code=share.class_code,
-                isin=share.isin,
-                lot=share.lot,
-                currency=share.currency,
-                klong=quotation_to_decimal(share.klong),
-                kshort=quotation_to_decimal(share.kshort),
-                dlong=quotation_to_decimal(share.dlong),
-                dshort=quotation_to_decimal(share.dshort),
-                dlong_min=quotation_to_decimal(share.dlong_min),
-                dshort_min=quotation_to_decimal(share.dshort_min),
-                short_enabled_flag=share.short_enabled_flag,
-                name=share.name,
-                exchange=share.exchange,
-                ipo_date=share.ipo_date,
-                issue_size=share.issue_size,
-                country_of_risk=share.country_of_risk,
-                country_of_risk_name=share.country_of_risk_name,
-                sector=share.sector,
-                issue_size_plan=share.issue_size_plan,
-                trading_status=share.trading_status,
-                otc_flag=share.otc_flag,
-                buy_available_flag=share.buy_available_flag,
-                sell_available_flag=share.sell_available_flag,
-                div_yield_flag=share.div_yield_flag,
-                share_type=share.share_type,
-                min_price_increment=quotation_to_decimal(share.min_price_increment),
-                api_trade_available_flag=share.api_trade_available_flag,
-                position_uid=share.position_uid,
-                for_iis_flag=share.for_iis_flag,
-                first_1min_candle_date=share.first_1min_candle_date,
-                first_1day_candle_date=share.first_1day_candle_date
+                defaults={
+                    "uid": share.uid,
+                    "ticker": share.ticker,
+                    "class_code": share.class_code,
+                    "isin": share.isin,
+                    "lot": share.lot,
+                    "currency": share.currency,
+                    "klong": quotation_to_decimal(share.klong),
+                    "kshort": quotation_to_decimal(share.kshort),
+                    "dlong": quotation_to_decimal(share.dlong),
+                    "dshort": quotation_to_decimal(share.dshort),
+                    "dlong_min": quotation_to_decimal(share.dlong_min),
+                    "dshort_min": quotation_to_decimal(share.dshort_min),
+                    "short_enabled_flag": share.short_enabled_flag,
+                    "name": share.name,
+                    "exchange": share.exchange,
+                    "ipo_date": share.ipo_date,
+                    "issue_size": share.issue_size,
+                    "country_of_risk": share.country_of_risk,
+                    "country_of_risk_name": share.country_of_risk_name,
+                    "sector": share.sector,
+                    "issue_size_plan": share.issue_size_plan,
+                    "trading_status": share.trading_status,
+                    "otc_flag": share.otc_flag,
+                    "buy_available_flag": share.buy_available_flag,
+                    "sell_available_flag": share.sell_available_flag,
+                    "div_yield_flag": share.div_yield_flag,
+                    "share_type": share.share_type,
+                    "min_price_increment": quotation_to_decimal(share.min_price_increment),
+                    "api_trade_available_flag": share.api_trade_available_flag,
+                    "position_uid": share.position_uid,
+                    "for_iis_flag": share.for_iis_flag,
+                    "first_1min_candle_date": share.first_1min_candle_date,
+                    "first_1day_candle_date": share.first_1day_candle_date
+                }
             )
 
     @classmethod
@@ -271,11 +274,12 @@ class Share(models.Model):
             query.delete()
 
     @classmethod
-    def get_all_figi(cls) -> QuerySet[str]:
-        return cls.objects.filter(exists_in_api=True).values_list('figi', flat=True)
+    @sync_to_async()
+    def get_all_figi_set(cls) -> set[str]:
+        return set(cls.objects.filter(exists_in_api=True).values_list('figi', flat=True))
 
     @classmethod
-    async def async_bulk_add_hist_candles(cls, candles: List, figi: str, interval: int):
+    async def async_bulk_add_hist_candles(cls, candles: set, figi: str, interval: int):
         share = await cls.objects.aget(figi=figi)
 
         def _bulk_queryset_generator() -> Iterator[HistoricCandle]:
@@ -300,6 +304,11 @@ class Share(models.Model):
         print(_bulk_queryset_generator())
         await HistoricCandle.objects.abulk_create(objs=_bulk_queryset_generator())
 
+    @classmethod
+    @sync_to_async()
+    def share_not_in_api_update(cls, figi_not_in_api: set):
+        cls.objects.filter(figi__in=figi_not_in_api).update(exists_in_api=False)
+
 
 class HistoricCandle(models.Model):
     id = models.BigAutoField(primary_key=True)
@@ -318,21 +327,22 @@ class HistoricCandle(models.Model):
                f"Close_price: {HistoricCandle.close_price}"
 
     @classmethod
+    @sync_to_async()
     def get_candles_by_figi(
             cls,
             figi: str,
             offset: int = None,
             interval: schemas.CandleInterval = schemas.CandleInterval.CANDLE_INTERVAL_DAY
-    ) -> QuerySet[HistoricCandle]:
+    ) -> set[HistoricCandle]:
         """
         :param offset: Отступ (в кол-ве свеч назад). Например, для получения 50 последних свеч введи 50.
         :param figi: Определяет по какой бумаге будут получены свечи.
         :param interval: Определяет интервал свеч. Например, дневные свечи.
         """
         if offset is None:
-            return cls.objects.filter(share__figi=figi, interval=interval)
+            return set(cls.objects.filter(share__figi=figi, interval=interval))
         else:
-            return cls.objects.filter(share__figi=figi, interval=interval)[:offset:-1]
+            return set(cls.objects.filter(share__figi=figi, interval=interval)[:offset:-1])
 
     @classmethod
     @sync_to_async()
@@ -360,7 +370,7 @@ class StandardDeviation(models.Model):
 
 class IndicatorPoint(models.Model):
     id = models.BigAutoField(primary_key=True)
-    value = models.FloatField()  # TODO may be models.DecimalField(max_digits=32, decimal_places=16)
+    value = models.DecimalField(max_digits=18, decimal_places=9)
     share = models.ForeignKey(Share, on_delete=models.CASCADE, db_index=False)
     date_time = models.DateTimeField()
     period = models.IntegerField()
@@ -412,10 +422,6 @@ class Strategy:
         'sma_30_90': 'cross-SMA 30-90',
         'sma_20_60': 'cross-SMA 20-60'
     }
-    id_: str
-    name: str
-    period: Union[SMACrossPeriods, int, Tuple]
-    candle_interval: schemas.CandleInterval
 
     def __init__(
             self,
@@ -460,7 +466,7 @@ class Strategy:
     def sma_50_200(cls) -> Strategy:
         return cls(
             id_='sma_50_200',
-            period=Strategy.SMACrossPeriods.sma_50_200(),
+            period=Strategy.SMACross.Periods.sma_50_200(),
             candle_interval=schemas.CandleInterval.CANDLE_INTERVAL_DAY
         )
 
@@ -468,7 +474,7 @@ class Strategy:
     def sma_30_90(cls) -> Strategy:
         return cls(
             id_='sma_30_90',
-            period=Strategy.SMACrossPeriods.sma_30_90(),
+            period=Strategy.SMACross.Periods.sma_30_90(),
             candle_interval=schemas.CandleInterval.CANDLE_INTERVAL_DAY
         )
 
@@ -476,7 +482,7 @@ class Strategy:
     def sma_20_60(cls) -> Strategy:
         return cls(
             id_='sma_20_60',
-            period=Strategy.SMACrossPeriods.sma_20_60(),
+            period=Strategy.SMACross.Periods.sma_20_60(),
             candle_interval=schemas.CandleInterval.CANDLE_INTERVAL_DAY
         )
 
@@ -497,11 +503,11 @@ class Strategy:
         return cls._all_cases[strategy_id]
 
     def description(self) -> str:
-        if self._id.startswith('sma_50_200'):
+        if self.id_.startswith('sma_50_200'):
             return sma_50_200_is_chosen
-        elif self._id.startswith('sma_30_90'):
+        elif self.id_.startswith('sma_30_90'):
             return sma_30_90_is_chosen
-        elif self._id.startswith('sma_20_60'):
+        elif self.id_.startswith('sma_20_60'):
             return sma_20_60_is_chosen
-        elif self._id.startswith('rsi'):
+        elif self.id_.startswith('rsi'):
             return rsi_is_chosen

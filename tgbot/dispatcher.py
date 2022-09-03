@@ -1,6 +1,7 @@
 """
     Telegram event handlers
 """
+import asyncio
 import sys
 import logging
 from typing import Dict
@@ -14,6 +15,7 @@ from telegram.ext import (
     ConversationHandler
 )
 
+from corestrategy.run_strat import run_strategies
 from dtb.celery import app  # event processing in async mode
 from dtb.settings import TELEGRAM_TOKEN, DEBUG
 
@@ -136,7 +138,7 @@ def setup_dispatcher(dp):
     return dp
 
 
-def run_pooling():
+async def run_polling():
     """ Run bot in pooling mode """
     updater = Updater(TELEGRAM_TOKEN)
 
@@ -147,7 +149,7 @@ def run_pooling():
     bot_info = Bot(TELEGRAM_TOKEN).get_me()
     bot_link = f"https://t.me/" + bot_info["username"]
 
-    print(f"✅Pooling of '{bot_link}' started")
+    print(f"✅Polling of '{bot_link}' started")
 
     updater.start_polling()
     updater.idle()

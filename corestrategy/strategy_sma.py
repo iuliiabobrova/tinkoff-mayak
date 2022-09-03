@@ -12,7 +12,7 @@ def sma_cross(actual_short_sma: float,
               df_shares: DataFrame,
               df_previous_sma: DataFrame,
               df_hist_sgnls: DataFrame,
-              sma_periods: Strategy.SMACrossPeriods,
+              sma_periods: Strategy.SMACross.Periods,
               df_actual_signals: DataFrame) -> List:
     """Функция считает, пересекаются ли скользящие средние, а далее формирует и сохраняет сигнал"""
 
@@ -72,7 +72,7 @@ def calc_actual_signals_sma(n: int,
                             df_all_lasts: DataFrame,
                             df_historic_sma: DataFrame,
                             df_previous_sma: DataFrame,
-                            sma_periods: Strategy.SMACrossPeriods,
+                            sma_periods: Strategy.SMACross.Periods,
                             df_actual_signals: DataFrame) -> List[DataFrame]:
     """Функция получает из SMA.csv исторические скользящие средние. Далее по ластам считает актуальные скользящие.
     Все данные в итоге подаёт на вход def sma_cross"""

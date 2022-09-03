@@ -1,5 +1,4 @@
-from tgbot.models import Share
-
+import asyncio
 
 # def printer():
 #     while True:
@@ -63,4 +62,27 @@ from tgbot.models import Share
 #                 print(i[0])
 
 
-print(Share.__doc__[6:-1].split(sep=', '))
+# print(Share.__doc__[6:-1].split(sep=', '))
+from corestrategy.utils import timer
+
+
+@timer
+async def main():
+
+    figi_list = list(range(1000))
+
+    async def apply_filter(ticker) -> bool:
+        await asyncio.sleep(1)
+        print(ticker)
+        return True
+
+    async def async_filter(async_func, ticker):
+        should_yield = await async_func(ticker)
+        if should_yield:
+            return ticker
+
+    filtered_tickers = await asyncio.gather(*[async_filter(apply_filter, ticker) for ticker in figi_list])
+    return filtered_tickers
+
+a = asyncio.run(main())
+print(a)

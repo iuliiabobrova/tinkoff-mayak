@@ -65,7 +65,7 @@ def run_delivery_boy(df: DataFrame, q: Queue) -> Queue:
         # создаём и запускаем потоки  # TODO del
         thread2 = Thread(target=send_signal_to_strategy_subscribers, args=(q,))
         thread2.start()
-        # Блокируем дальнейшее выполнение до завершения всех заданий  # TODO del
+        # Блокируем дальнейшее выполнение до завершения всех заданий TODO del
         q.join()
 
     return q

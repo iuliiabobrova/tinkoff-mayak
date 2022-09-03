@@ -2,7 +2,6 @@ import asyncio
 from typing import List
 from time import perf_counter
 
-from threading import Event
 from queue import Queue
 from pandas import DataFrame, concat
 from tinkoff.invest import CandleInterval
@@ -10,19 +9,21 @@ from tinkoff.invest import CandleInterval
 from corestrategy.hitoric_data_calc import (
     recalc_sma_if_inactual,
     calc_std_deviation,
-    calc_historic_signals_sma
+    calc_rsi_float,
+    calc_historic_signals_rsi,
+    SMASignalsCalculator
 )
 from corestrategy.utils import (
     is_time_to_download_data,
     market_is_closed,
     wait_until_download_time,
     wait_until_market_is_open,
-    now_msk
+    now_msk, Limit
 )
 from corestrategy.actual_data_download import get_all_lasts
 from corestrategy.historic_data_download import (
     download_shares,
-    get_figi_list_with_inactual_historic_data,
+    get_figi_with_inactual_historic_data,
     download_historic_candles
 )
 from corestrategy.strategy_sma import calc_actual_signals_sma
@@ -94,57 +95,47 @@ def calc_strategies(
     n += 1
     run_time = perf_counter() - start_time
     if run_time < 60:
-        Event().wait(timeout=60 - run_time)
+        asyncio.sleep(delay=60 - run_time)
 
     return [df_previous_sma_list, n, queue]
 
 
-async def update_data():
+async def update_data(figi: str):
     """Функция обновляет все исторические данные: Share, HistoricCandle, MovingAverage, RSI, Signal"""
-    print('⏩START DATA CHECK. It can take 2 hours')
 
-    download_shares()
-    figi_list = get_figi_list_with_inactual_historic_data(HistoricCandle)[:3]
-    asyncio.run(download_historic_candles(figi_list=figi_list))
-    await recalc_sma_if_inactual()
-    for periods in Strategy.SMACrossPeriods.all():
-        calc_historic_signals_sma(periods=periods, figi_list=figi_list, interval=CandleInterval.CANDLE_INTERVAL_DAY)
+    await download_historic_candles(figi_tuple=figi)
+    await recalc_sma_if_inactual(figi_tuple=figi)
 
-    shares = Share.objects.filter(figi__in=figi_list)
+    for periods in Strategy.SMACross.Periods.all():
+        calculator = SMASignalsCalculator(
+            figi=figi,
+            periods=periods
+        )
+        await calculator.calc_historic_signals()
+        # calc_rsi_float()
+        # calc_historic_signals_rsi()
 
-    # # проверка rsi-signals на актуальность
-    # if exists(path='csv/historic_signals_rsi.csv'):
-    #     df = read_csv(
-    #         filepath_or_buffer='csv/historic_signals_rsi.csv',
-    #         sep=';',
-    #         index_col=0,
-    #         parse_dates=['datetime'],
-    #         low_memory=False
-    #     )
-    #     if historic_data_is_actual(df=df):
-    #         df_historic_signals_rsi = df
-    #         df_rsi = read_csv(
-    #             filepath_or_buffer='csv/rsi.csv',
-    #             sep=';',
-    #             index_col=0
-    #         )
-    #     else:
-    #         save_historic_signals_rsi()
-    # else:
-    #     save_historic_signals_rsi()
-
-    calc_std_deviation(figi_list=figi_list)
+    #calc_std_deviation(figi_list=figi_list)
     # calc_profit(df_historic_signals_rsi=df_historic_signals_rsi)  TODO RSI-profit
-    print('✅All data is actual')
 
 
-def run_strategies() -> None:
+async def run_strategies() -> None:
     """Функция для ограничения работы стратегий во времени"""
+
+    @Limit(calls=3, period=60)  # API позволяет запрашивать свечи не более 300 раз в минуту
+    async def create_update_data_task():
+        return asyncio.create_task(update_data(figi=figi))
 
     n = 0
     queue1 = Queue()
 
-    asyncio.create_task(update_data())  # TODO check async
+    await download_shares()
+    figi_tuple = await get_figi_with_inactual_historic_data(HistoricCandle)
+    tasks = []
+    for figi in figi_tuple:
+        tasks += [await create_update_data_task()]
+    for task in tasks:
+        await task
 
     # Пустые DataFrame
     df_previous_sma_50_200 = DataFrame(columns=['previous_short_sma', 'previous_long_sma'])
@@ -158,7 +149,7 @@ def run_strategies() -> None:
             wait_until_download_time()
         elif is_time_to_download_data():
             print(f'Time to download data. Now-time: {now_msk()}')
-            update_data()
+            await update_data()
             wait_until_market_is_open()
         while not market_is_closed():
             [

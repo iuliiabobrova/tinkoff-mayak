@@ -114,23 +114,26 @@ def minutes_timedelta_from_last_candle() -> timedelta:  # TODO need test
         return now_msk() - (now_msk() - timedelta(minutes=1))  # гэп в 1 минуту = норма
 
 
-def historic_data_is_actual(cls, figi: str = None, period: int = None) -> bool:
+async def historic_data_is_actual(cls, figi: str = None, period: int = None) -> bool:
     """
     :param cls: класс, таблица которого проверяется на актуальность.
     :param figi: figi акции, которая проверяется в таблице. Если figi не задан, проверяются все figi.
     :param period: передается для проверки только определенного периода индикатора.
     Если не задан, будут проверены все периоды индикатора в таблице.
+    :return: Возвращает True в случае, если исторические данные актуальны.
     """
 
     args = [arg for arg in [figi, period] if arg]
-    last_candle_datetime = asyncio.run(cls.get_last_datetime(*args))
+    last_candle_datetime = await cls.get_last_datetime(*args)
     if last_candle_datetime is None:
         return False
 
+    print(figi)  # TODO delete
     print('last_candle_datetime', last_candle_datetime)  # TODO delete
     print('days_timedelta_from_last_candle()', normal_timedelta_from_last_candle())  # TODO delete
     print('market_close_time(days_offset=0)', market_close_time(days_offset=0))  # TODO delete
     print('last_candle_datetime + days_timedelta_from_last_candle()', last_candle_datetime + normal_timedelta_from_last_candle())  # TODO delete
+    print('')  # TODO delete
 
     return last_candle_datetime + normal_timedelta_from_last_candle() >= market_close_time(days_offset=0)
 

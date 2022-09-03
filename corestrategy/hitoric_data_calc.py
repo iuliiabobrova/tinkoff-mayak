@@ -1,11 +1,16 @@
-from typing import List, Iterator, NoReturn, Optional
+import asyncio
+from decimal import Decimal
+from typing import List, Iterator, NoReturn, Optional, Tuple, Union
+
+import tqdm.asyncio
+from asgiref.sync import sync_to_async
 from numpy import nanpercentile
 
 from pandas import DataFrame, Series, concat, isna
 from tinkoff.invest import CandleInterval
 
 from corestrategy.settings import std_period, RsiSetting
-from corestrategy.historic_data_download import get_figi_list_with_inactual_historic_data
+from corestrategy.historic_data_download import get_figi_with_inactual_historic_data
 from tgbot.models import HistoricCandle, MovingAverage, StandardDeviation, Share, Signal, Strategy
 from iteration_utilities import deepflatten
 
@@ -24,38 +29,6 @@ def calc_std_deviation(figi_list: List[str]):
     print('✅Calc of standard deviation done')
 
 
-# TODO заложить логику расчета не всех sma каждый раз
-# TODO заложить логику расчета свечей разных интервалов (parameter: interval)
-async def calc_sma(ma_length: int, figi_list: List[str], interval: CandleInterval = None):
-    """
-    Считает простое скользящее среднее
-
-    :param ma_length: Длина скользящей средней.
-    :param figi_list: Бумаги, по которым будет производиться расчет.
-    :param interval: Интервал свеч (день, 1 минута, 5 минут и т.д.)
-    """
-    for figi in figi_list:
-        candles = HistoricCandle.get_candles_by_figi(figi=figi)
-        if len(candles) < ma_length:
-            continue
-        close_prices_list = list(map(lambda candle: [candle.close_price], candles))
-        datetime_list = list(map(lambda candle: candle.date_time, candles))
-        df_historic_prices = DataFrame(index=datetime_list, data=close_prices_list, columns=['close_price'])
-        df_sma = df_historic_prices.rolling(ma_length - 1).mean().dropna().round(3)
-
-        def ma_generator() -> Iterator[MovingAverage]:
-            for index in df_sma.index:
-                yield MovingAverage(
-                    value=df_sma.close_price[index],
-                    share=Share.objects.get(figi=figi),
-                    date_time=index,
-                    ma_length=ma_length - 1
-                )
-
-        MovingAverage.objects.all().delete()
-        await MovingAverage.objects.abulk_create(objs=ma_generator())
-
-
 # TODO ТЕСТОВАЯ ФУНКЦИЯ расчетов напрямую в БД, нужно доработать и заменить calc_sma
 def calc_sma_new(period: int, figi_list: List[str]):
     for figi in figi_list:
@@ -69,46 +42,95 @@ def calc_sma_new(period: int, figi_list: List[str]):
         print(items)
 
 
-# проверка sma на актуальность
-async def recalc_sma_if_inactual():
+# TODO заложить логику расчета не всех sma каждый раз
+# TODO заложить логику расчета свечей разных интервалов (parameter: interval)
+async def recalc_sma_if_inactual(
+        figi_tuple: Union[Tuple[str], str] = None,
+        interval: CandleInterval = CandleInterval.CANDLE_INTERVAL_DAY
+) -> NoReturn:
+    """
+    Считает простое скользящее среднее
+
+    :param interval: Интервал свеч (день, 1 минута, 5 минут и т.д.)
+    :param figi_tuple: По каким акциям будет произведен расчет sma?
+    Если параметр не указан, sma будут рассчитаны для всех акций с неактуальными историческими данными
+    """
+
+    async def calc_sma(figi_tuple_=figi_tuple) -> NoReturn:
+
+        if figi_tuple_ is None:
+            figi_tuple_ = await get_figi_with_inactual_historic_data(MovingAverage, period=ma_length)
+
+        for figi in figi_tuple:
+            candles = await HistoricCandle.get_candles_by_figi(figi=figi)
+            if len(candles) < ma_length:
+                continue
+            close_prices_list = list(map(lambda candle: [candle.close_price], candles))
+            datetime_list = list(map(lambda candle: candle.date_time, candles))
+            df_historic_prices = DataFrame(index=datetime_list, data=close_prices_list, columns=['close_price'])
+            df_sma = df_historic_prices.rolling(ma_length - 1).mean().dropna().round(3)
+
+            def ma_generator() -> Iterator[MovingAverage]:
+                for index in df_sma.index:
+                    yield MovingAverage(
+                        value=df_sma.close_price[index],
+                        share=Share.objects.get(figi=figi),
+                        date_time=index,
+                        period=ma_length - 1,
+                        candle_interval=interval
+                    )
+
+            await MovingAverage.objects.all().adelete()
+            await MovingAverage.objects.abulk_create(objs=ma_generator())
+
     print('⏩Start calculating SMA-float')
-    list_of_ma_length = list(deepflatten([[periods.short, periods.long] for periods in Strategy.SMACrossPeriods.all()]))
-    print("period_list", list_of_ma_length)
+    list_of_ma_length = list(deepflatten([[periods.short, periods.long] for periods in Strategy.SMACross.Periods.all()]))
+    tasks = []
     for ma_length in list_of_ma_length:
-        figi_list = get_figi_list_with_inactual_historic_data(MovingAverage, period=ma_length)
-        await calc_sma(ma_length=ma_length, figi_list=figi_list)
+        tasks.append(asyncio.create_task(calc_sma()))
+    await asyncio.gather(*tasks)
     print('✅Calc of SMA done')
 
 
-# TODO interval
-def calc_historic_signals_sma(
-        periods: Strategy.SMACrossPeriods,
-        figi_list: List[str],
-        interval: CandleInterval
-):
+class SMASignalsCalculator:
     """
-    Считает только исторические сигналы по стратегии cross-SMA.
+    Считает исторические сигналы по стратегии cross-SMA и сохраняет их в БД.
 
-    :param periods: Определяет длины скользящих средних. Например: SMACrossPeriods(50, 200).
-    :param figi_list: Список figi, по которым нужен расчет.
+    :param periods: Определяет длины скользящих средних. Например: SMACross.Periods(50, 200).
+    :param figi: бумага по которой нужен расчет.
     :param interval: Определяет интервал свеч. Например: дневные свечи = CandleInterval.CANDLE_INTERVAL_DAY
     """
 
-    def get_short_sma_set() -> QuerySet[MovingAverage]:
-        return MovingAverage.objects.filter(
-            figi=figi,
-            period=periods.short,
-            interval=CandleInterval.CANDLE_INTERVAL_DAY
-        )[20]
+    def __init__(self,
+                 figi: str,
+                 periods: Strategy.SMACross.Periods,
+                 interval: CandleInterval = CandleInterval.CANDLE_INTERVAL_DAY):
+        self.figi = figi
+        self.periods = periods
+        self.interval = interval
 
-    def get_long_sma_set() -> QuerySet[MovingAverage]:
+    @sync_to_async()
+    def get_short_sma_set(self) -> QuerySet[MovingAverage]:
         return MovingAverage.objects.filter(
-            figi=figi,
-            period=periods.long,
-            interval=CandleInterval.CANDLE_INTERVAL_DAY
-        )[20]
+            figi=self.figi,
+            period=self.periods.short,
+            interval=self.interval
+        )[:20]
 
-    def sma_cross() -> Optional[bool]:
+    @sync_to_async()
+    def get_long_sma_set(self) -> QuerySet[MovingAverage]:
+        return MovingAverage.objects.filter(
+            figi=self.figi,
+            period=self.periods.long,
+            interval=self.interval
+        )[:20]
+
+    @staticmethod
+    async def check_sma_cross(short_sma_value: Decimal,
+                              previous_short_sma_value: Decimal,
+                              long_sma_value: Decimal,
+                              previous_long_sma_value: Decimal,
+                              historic_price: Decimal) -> Optional[bool]:
         """
         Проверяет: пересекаются ли скользящие средние.
 
@@ -125,10 +147,10 @@ def calc_historic_signals_sma(
         else:
             return None
 
-    print(f'⏩Historic signals {periods} calc starts')
-    for figi in figi_list:
-        short_sma_set = get_short_sma_set()
-        long_sma_set = get_long_sma_set()
+    async def calc_historic_signals(self) -> NoReturn:
+        print(f'⏩Historic signals for {self.figi}: {self.periods} calc starts')
+        short_sma_set = await self.get_short_sma_set()
+        long_sma_set = await self.get_long_sma_set()
 
         for index_of_row in range(-1, -len(long_sma_set), -1):
 
@@ -138,20 +160,28 @@ def calc_historic_signals_sma(
             previous_long_sma_value = long_sma_set[index_of_row - 1].value
 
             date_time = short_sma_set[index_of_row].date_time
-            historic_price = HistoricCandle.objects.filter(figi=figi, date_time=date_time)
+            historic_price = HistoricCandle.objects.filter(figi=self.figi, date_time=date_time)
 
-            # формирование сигнала, запись в DF
-            buy_flag = sma_cross()
+            buy_flag = await self.check_sma_cross(
+                short_sma_value=short_sma_value,
+                previous_short_sma_value=previous_short_sma_value,
+                long_sma_value=long_sma_value,
+                previous_long_sma_value=previous_long_sma_value,
+                historic_price=historic_price
+            )
             if buy_flag is not None:
-                Signal.objects.create(
-                    share=Share.objects.get(figi=figi),
+                await Signal.objects.acreate(
+                    share=Share.objects.aget(figi=self.figi),
                     date_time=date_time,
                     historic_price=historic_price,
                     buy_flag=buy_flag,
-                    strategy_id=periods.__str__
+                    strategy_id=self.periods.__str__
                 )
+        print('✅Historic_signals_SMA_are_saved')
 
-    print('✅Historic_signals_SMA_are_saved to CSV')
+
+
+
 
 
 def calc_one_figi_signals_rsi(sr_rsi: Series,
@@ -184,43 +214,28 @@ def calc_one_figi_signals_rsi(sr_rsi: Series,
     return df
 
 
-def calc_rsi_float(df_close_prices: DataFrame) -> DataFrame:
-    """Расчет по формуле RSI"""
+def calc_rsi_float() -> NoReturn:
+    """Расчет индикатора RelativeStrengthIndex"""
 
-    # for figi in figi_list:
-    #     candles = HistoricCandle.get_candles_by_figi(figi=figi)
-    #     if len(candles) < period:
-    #         continue
-    #     close_prices_list = list(map(lambda candle: [candle.close_price], candles))
-    #     datetime_list = list(map(lambda candle: candle.date_time, candles))
-    #     df_historic_prices = DataFrame(index=datetime_list, data=close_prices_list, columns=['close_price'])
-    #     df_sma = df_historic_prices.rolling(period - 1).mean().dropna().round(3)
-    #     for index in df_sma.index:
-    #         MovingAverage.create(
-    #             value=df_sma.close_price[index],
-    #             figi=figi,
-    #             period=period - 1,
-    #             date_time=index
-    #         )
-
-    delta = df_close_prices.diff()
-    up = delta.clip(lower=0)
-    down = -1 * delta.clip(upper=0)
-    ema_up = up.ewm(com=RsiSetting.period_of_daily_ema, adjust=False).mean()
-    ema_down = down.ewm(com=RsiSetting.period_of_daily_ema, adjust=False).mean()
-    rs = ema_up / ema_down
-    rsi = (100 - (100 / (1 + rs))).round(2)
-    rsi.to_csv(path_or_buf='csv/rsi.csv', sep=';')
-
-    return rsi
+    df_close_prices = DataFrame.from_dict(HistoricCandle.objects.values_list('close_price'))
+    print(df_close_prices)
+    raise ValueError
+    # delta = df_close_prices.diff()
+    # up = delta.clip(lower=0)
+    # down = -1 * delta.clip(upper=0)
+    # ema_up = up.ewm(com=RsiSetting.period_of_daily_ema, adjust=False).mean()
+    # ema_down = down.ewm(com=RsiSetting.period_of_daily_ema, adjust=False).mean()
+    # rs = ema_up / ema_down
+    # rsi = (100 - (100 / (1 + rs))).round(2)
+    # rsi.to_csv(path_or_buf='csv/rsi.csv', sep=';')
+    #
+    # return rsi
 
 
-def calc_historic_signals_rsi(df_close_prices: DataFrame,
-                              df_shares: DataFrame,
-                              df_rsi: DataFrame):
-    """Функция позволяет рассчитать индикатор RSI и сигналы на основе индикатора.
+def calc_historic_signals_rsi():
+    """Функция позволяет рассчитать сигналы на основе индикатора RSI.
     Триггером являются самые низкие и самые высокие значения RSI, области которых обозначены в
-    переменных upper_rsi_percentile, lower_rsi_percentile"""
+    аттрибутах класса RsiSetting"""
 
     print('⏩Historic signals RSI calc starts')
     for figi in df_close_prices.columns:
@@ -237,25 +252,6 @@ def calc_historic_signals_rsi(df_close_prices: DataFrame,
                                                             df_shares=df_shares)
 
         yield df_historic_signals_rsi
-
-
-def save_historic_signals_rsi(df_close_prices: DataFrame,
-                              df_shares: DataFrame):
-    """Обеспечивает сохранение сигналов в DataFrame и CSV"""
-
-    df_rsi = calc_rsi_float(df_close_prices=df_close_prices)
-    list_df = calc_historic_signals_rsi(
-        df_close_prices=df_close_prices,
-        df_shares=df_shares,
-        df_rsi=df_rsi
-    )
-    df_historic_signals_rsi = concat(objs=list_df, ignore_index=True, copy=False)
-
-    # Сортировка по дате. В конце самые актуальные сигналы
-    df_historic_signals_rsi.sort_values(by='datetime', inplace=True)
-    df_historic_signals_rsi.reset_index(drop=True, inplace=True)
-    df_historic_signals_rsi.to_csv(path_or_buf='csv/historic_signals_rsi.csv', sep=';')
-    print('✅Historic signals RSI are saved')
 
 
 def calc_profit(
