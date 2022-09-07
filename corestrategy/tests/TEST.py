@@ -53,36 +53,8 @@ import asyncio
 #         run_delivery_boy(lst_of_sgnls=list_of_signals)
 #         list_of_signals = [(99, 'XXX')]
 
-# def get_attributes_list(cls):
-#     """"""
-#
-#     for i in inspect.getmembers(cls):
-#         if not i[0].startswith('_'):
-#             if not inspect.ismethod(i[1]) and i[0] != 'DoesNotExist' 'MultipleObjectsReturned':
-#                 print(i[0])
+def generator():  # TODO async?
+    for i in range(1000):
+        yield i
 
-
-# print(Share.__doc__[6:-1].split(sep=', '))
-from corestrategy.utils import timer
-
-
-@timer
-async def main():
-
-    figi_list = list(range(1000))
-
-    async def apply_filter(ticker) -> bool:
-        await asyncio.sleep(1)
-        print(ticker)
-        return True
-
-    async def async_filter(async_func, ticker):
-        should_yield = await async_func(ticker)
-        if should_yield:
-            return ticker
-
-    filtered_tickers = await asyncio.gather(*[async_filter(apply_filter, ticker) for ticker in figi_list])
-    return filtered_tickers
-
-a = asyncio.run(main())
-print(a)
+print([generator()])

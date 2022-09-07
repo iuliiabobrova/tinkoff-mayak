@@ -10,5 +10,7 @@ from tgbot.dispatcher import run_polling
 from corestrategy.run_strat import run_strategies
 
 
+# TODO async
 if __name__ == "__main__":
     asyncio.run(run_strategies())
+

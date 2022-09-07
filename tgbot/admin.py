@@ -11,7 +11,8 @@ from tgbot.models import (
     Command,
     HistoricCandle,
     Share,
-    MovingAverage, RelatedStrengthIndex
+    MovingAverage,
+    RelativeStrengthIndex
 )
 from tgbot.forms import BroadcastForm
 
@@ -187,7 +188,8 @@ class IndicatorPoint(admin.ModelAdmin):
         'value',
         'share',
         'date_time',
-        'period'
+        'period',
+        'candle_interval'
     ]
 
 
@@ -196,6 +198,6 @@ class MovingAverageAdmin(IndicatorPoint):
     pass
 
 
-@admin.register(RelatedStrengthIndex)
+@admin.register(RelativeStrengthIndex)
 class RelatedStrengthIndexAdmin(IndicatorPoint):
     pass

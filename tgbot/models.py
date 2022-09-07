@@ -73,7 +73,7 @@ class User(CreateUpdateTracker):
     is_blocked_bot = models.BooleanField(default=False)
     is_admin = models.BooleanField(default=False)
     subscriptions = models.ManyToManyField(Subscription, blank=True)
-    commands = models.ManyToManyField(Command, blank=True)
+    commands = models.ManyToManyField(Command, blank=True)  # TODO attention when migrate (table command: user_id, username)
     objects = GetOrNoneManager()  # user = User.objects.get_or_none(user_id=<some_id>)
     admins = AdminUserManager()  # User.admins.all()
 
@@ -301,7 +301,6 @@ class Share(models.Model):
                     interval=interval
                 )
 
-        print(_bulk_queryset_generator())
         await HistoricCandle.objects.abulk_create(objs=_bulk_queryset_generator())
 
     @classmethod
@@ -402,7 +401,7 @@ class MovingAverage(IndicatorPoint):
     pass
 
 
-class RelatedStrengthIndex(IndicatorPoint):
+class RelativeStrengthIndex(IndicatorPoint):
     pass
 
 
@@ -438,7 +437,50 @@ class Strategy:
         self.candle_interval = candle_interval
         self.period = period
 
+    @classmethod
+    def name(cls, strategy_id: str) -> str:
+        return cls._all_cases[strategy_id]
+
+    def description(self) -> str:
+        if self.id_.startswith('sma_50_200'):
+            return sma_50_200_is_chosen
+        elif self.id_.startswith('sma_30_90'):
+            return sma_30_90_is_chosen
+        elif self.id_.startswith('sma_20_60'):
+            return sma_20_60_is_chosen
+        elif self.id_.startswith('rsi'):
+            return rsi_is_chosen
+
     class SMACross:
+
+        @classmethod
+        def sma_50_200(cls) -> Strategy:
+            return Strategy(
+                id_='sma_50_200',
+                period=cls.Periods.sma_50_200(),
+                candle_interval=schemas.CandleInterval.CANDLE_INTERVAL_DAY
+            )
+
+        @classmethod
+        def sma_30_90(cls) -> Strategy:
+            return Strategy(
+                id_='sma_30_90',
+                period=cls.Periods.sma_30_90(),
+                candle_interval=schemas.CandleInterval.CANDLE_INTERVAL_DAY
+            )
+
+        @classmethod
+        def sma_20_60(cls) -> Strategy:
+            return Strategy(
+                id_='sma_20_60',
+                period=cls.Periods.sma_20_60(),
+                candle_interval=schemas.CandleInterval.CANDLE_INTERVAL_DAY
+            )
+
+        @classmethod
+        def all(cls) -> List[Strategy]:
+            return [cls.sma_50_200(), cls.sma_30_90(), cls.sma_20_60()]
+
         class Periods:
             def __init__(self, short, long):
                 self.short = short
@@ -464,52 +506,49 @@ class Strategy:
                 return [cls.sma_50_200(), cls.sma_30_90(), cls.sma_20_60()]
 
 
-    @classmethod
-    def sma_50_200(cls) -> Strategy:
-        return cls(
-            id_='sma_50_200',
-            period=Strategy.SMACross.Periods.sma_50_200(),
-            candle_interval=schemas.CandleInterval.CANDLE_INTERVAL_DAY
-        )
+class StrategyRSI(Strategy):
+
+    def __init__(self,
+                 id_: str,
+                 period: int,
+                 upper_rsi_border: float,
+                 lower_rsi_border: float,
+                 candle_interval: schemas.CandleInterval.CANDLE_INTERVAL_DAY,
+                 fix_border_flag: bool = False,
+                 percentile_border_flag: bool = False):
+        """
+        :param upper_rsi_border: Определяет верхнюю границу, пересечение которой сформирует сигнал.
+        :param lower_rsi_border: Определяет нижнюю границу, пересечение которой сформирует сигнал.
+        :param fix_border_flag: Настройка. Если True, границы будут определяться фиксированно, например 70-30
+        :param percentile_border_flag: Настройка. Границы будут определяться на основании процентиля значений
+        """
+        super().__init__(id_, candle_interval, period)
+        self.upper_rsi_border = upper_rsi_border
+        self.lower_rsi_border = lower_rsi_border
+        if fix_border_flag and percentile_border_flag:
+            print("'fix_border_flag' and 'percentile_border_flag' can't be TRUE at the same time")
+            raise ValueError
+        if not fix_border_flag and not percentile_border_flag:
+            print("'fix_border_flag' and 'percentile_border_flag' can't be FALSE at the same time")
+            raise ValueError
+        self.fix_border_flag = fix_border_flag
+        self.percentile_border_flag = percentile_border_flag
 
     @classmethod
-    def sma_30_90(cls) -> Strategy:
-        return cls(
-            id_='sma_30_90',
-            period=Strategy.SMACross.Periods.sma_30_90(),
-            candle_interval=schemas.CandleInterval.CANDLE_INTERVAL_DAY
-        )
-
-    @classmethod
-    def sma_20_60(cls) -> Strategy:
-        return cls(
-            id_='sma_20_60',
-            period=Strategy.SMACross.Periods.sma_20_60(),
-            candle_interval=schemas.CandleInterval.CANDLE_INTERVAL_DAY
-        )
-
-    @classmethod
-    def rsi(cls) -> Strategy:
+    def rsi_13(cls) -> StrategyRSI:
         return cls(
             id_='rsi',
             period=13,
-            candle_interval=schemas.CandleInterval.CANDLE_INTERVAL_DAY
+            candle_interval=schemas.CandleInterval.CANDLE_INTERVAL_DAY,
+            upper_rsi_border=75,
+            lower_rsi_border=25,
+            fix_border_flag=True
         )
 
     @classmethod
-    def all(cls) -> List[Strategy]:
-        return [cls.rsi(), cls.sma_50_200(), cls.sma_30_90(), cls.sma_20_60()]
+    def all(cls) -> List[StrategyRSI]:
+        return [cls.rsi_13(), ]
 
-    @classmethod
-    def name(cls, strategy_id: str) -> str:
-        return cls._all_cases[strategy_id]
 
-    def description(self) -> str:
-        if self.id_.startswith('sma_50_200'):
-            return sma_50_200_is_chosen
-        elif self.id_.startswith('sma_30_90'):
-            return sma_30_90_is_chosen
-        elif self.id_.startswith('sma_20_60'):
-            return sma_20_60_is_chosen
-        elif self.id_.startswith('rsi'):
-            return rsi_is_chosen
+def all_strategies() -> List[Strategy]:  # TODO refactor
+    return Strategy.SMACross.all() + StrategyRSI.all()

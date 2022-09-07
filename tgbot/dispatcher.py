@@ -1,7 +1,6 @@
 """
     Telegram event handlers
 """
-import asyncio
 import sys
 import logging
 from typing import Dict
@@ -15,7 +14,6 @@ from telegram.ext import (
     ConversationHandler
 )
 
-from corestrategy.run_strat import run_strategies
 from dtb.celery import app  # event processing in async mode
 from dtb.settings import TELEGRAM_TOKEN, DEBUG
 
@@ -41,7 +39,7 @@ from tgbot.handlers.strategy_info import handlers as strategy_info_handlers
 from tgbot.handlers.time import handlers as time_handlers
 from tgbot.handlers.turn_off_signals import handlers as turn_off_signals_handlers
 from tgbot.handlers.utils import files, error
-from tgbot.models import Strategy
+from tgbot.models import all_strategies
 
 
 def setup_dispatcher(dp):
@@ -91,7 +89,7 @@ def setup_dispatcher(dp):
         "str_info", strategy_info_handlers.command_str_info))
 
     # handle strategy choice
-    strategy_ids = [strategy.id_ for strategy in Strategy.all()]
+    strategy_ids = [strategy.id_ for strategy in all_strategies()]
     for identifier in strategy_ids:
         dp.add_handler(CallbackQueryHandler(
             strategies_handlers.strategy_connect, pattern=f"^{identifier}_connect$"))

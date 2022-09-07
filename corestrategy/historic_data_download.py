@@ -2,14 +2,11 @@
 В основном используется Сервис Котировок https://tinkoff.github.io/investAPI/marketdata/
 Figi - это уникальный ID акции"""
 import asyncio
-from typing import List, Tuple, Union
+from typing import Tuple, Union
 
-from asgiref.sync import sync_to_async
 from dateutil.tz import tzutc
 from datetime import datetime, timedelta
 from tinkoff.invest import Client, CandleInterval, AsyncClient
-from toolz import unique
-from tqdm import tqdm
 
 from dtb.settings import INVEST_TOKEN
 from corestrategy.utils import now_msk, retry_with_timeout, Limit, historic_data_is_actual, timer
@@ -37,7 +34,7 @@ async def download_candles_by_figi(
         figi: str,
         days: int,
         interval: CandleInterval = CandleInterval.CANDLE_INTERVAL_DAY):
-    """Запрашивает и сохраняет все ОТСУТСТВУЮЩИЕ свечи по ОДНОМУ str(figi)"""
+    """Запрашивает и сохраняет свечи по ОДНОМУ str(figi)"""
 
     now_date = now_msk() - timedelta(
         hours=now_msk().hour - 5,  # TODO почему 5 ?
@@ -61,31 +58,25 @@ async def download_candles_by_figi(
     await Share.async_bulk_add_hist_candles(candles=candles_set, figi=figi, interval=interval)
 
 
-async def download_historic_candles(figi_tuple: Union[Tuple[str], str]):
-    """Позволяет загрузить ОТСУТСТВУЮЩИЕ свечи из API в БД"""
+async def download_historic_candles(figi: Union[Tuple[str], str]):
+    """
+    Позволяет загрузить ОТСУТСТВУЮЩИЕ свечи из API в БД для одной или множества бумаг.
+
+    :param figi: Одна или множество бумаг, по которым будет запрос к API
+    """
 
     max_days_available_by_api = 366
 
-    if type(figi_tuple) is Tuple:
-        print('⏩Downloading historic candles for', len(figi_tuple), 'shares')
-        for figi in figi_tuple:
-            last_date = (await HistoricCandle.get_last_datetime(figi=figi) or
-                         datetime(year=2012, month=1, day=1, tzinfo=tzutc()))
-            passed_days = (now_msk() - last_date).days
-            if passed_days == 0:  # проверка: не запрашиваем ли существующие в CSV данные
-                continue
-            await download_candles_by_figi(figi=figi, days=passed_days)
-            if passed_days > max_days_available_by_api:
-                await asyncio.sleep(delay=3)
-    elif type(figi_tuple) is str:
-        last_date = (await HistoricCandle.get_last_datetime(figi=figi_tuple) or
+    print('⏩Downloading historic candles for', figi)
+    for fig in [figi]:
+        last_date = (await HistoricCandle.get_last_datetime(figi=fig) or
                      datetime(year=2012, month=1, day=1, tzinfo=tzutc()))
         passed_days = (now_msk() - last_date).days
         if passed_days == 0:  # проверка: не запрашиваем ли существующие в CSV данные
-            return
-        print('awaiting candles for', figi_tuple)  # TODO не срабатывает Limit при асинхронных запросах
-        await download_candles_by_figi(figi=figi_tuple, days=passed_days)
-        print('got candles for', figi_tuple)
+            continue
+        print('awaiting candles for', fig)
+        await download_candles_by_figi(figi=fig, days=passed_days)
+        print('got candles for', fig)
         if passed_days > max_days_available_by_api:
             await asyncio.sleep(delay=3)
 

@@ -7,6 +7,9 @@ from threading import Event
 from time import perf_counter, monotonic
 
 from dateutil.tz import tzutc
+from pandas import DataFrame
+
+from tgbot.models import HistoricCandle
 
 
 def start_of_current_day() -> datetime:
@@ -207,3 +210,10 @@ def get_attributes_list(cls):
     class_name = str(cls).split(sep='.')[-1][:-2]
     classname_length = len(class_name) + 1
     return cls.__doc__[classname_length:-1].split(sep=', ')
+
+
+async def closeprices_dataframe_for_figi(figi: str) -> DataFrame:
+    candles = await HistoricCandle.get_candles_by_figi(figi=figi)
+    close_prices_list = list(map(lambda candle: [candle.close_price], candles))
+    datetime_list = list(map(lambda candle: candle.date_time, candles))
+    return DataFrame(index=datetime_list, data=close_prices_list, columns=['close_price'])  # TODO Series?
