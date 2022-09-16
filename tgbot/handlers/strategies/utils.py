@@ -56,7 +56,7 @@ class Signal:
             f"🕓{date}"
 
     def get_url(self, user_id) -> str:
-        return f"http://www.tinkoff.ru/invest/stocks/{self.ticker}?utm_source=mayak_bot&utm_content={user_id}"
+        return f"https://www.tinkoff.ru/invest/stocks/{self.ticker}?utm_source=mayak_bot&utm_content={user_id}"
 
 
 def get_last_signals(df: DataFrame, amount: int) -> List[Signal]:
