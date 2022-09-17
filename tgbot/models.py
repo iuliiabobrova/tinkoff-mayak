@@ -306,6 +306,9 @@ class Share(models.Model):
     @classmethod
     @sync_to_async()
     def share_not_in_api_update(cls, figi_not_in_api: set):
+        # не удаляем акцию, а выставляем ей флаг "exists_in_api", потому что
+        # иначе будут удалены исторические данные и сигналы каскадом
+        # и мы не сможем отследить историю высланных пользователям сигналов
         cls.objects.filter(figi__in=figi_not_in_api).update(exists_in_api=False)
 
 

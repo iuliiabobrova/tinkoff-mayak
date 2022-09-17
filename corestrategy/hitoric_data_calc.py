@@ -6,7 +6,7 @@ from asgiref.sync import sync_to_async
 
 from pandas import DataFrame, Series
 
-from corestrategy.settings import std_period, RsiSetting
+from corestrategy.settings import std_period
 from tgbot.models import (
     HistoricCandle,
     MovingAverage,
@@ -180,8 +180,8 @@ class RSISignalsCalculator:
         delta = df_historic_close_prices.diff()
         up = delta.clip(lower=0)
         down = -1 * delta.clip(upper=0)
-        ema_up = up.ewm(com=RsiSetting.period_of_daily_ema, adjust=False).mean()
-        ema_down = down.ewm(com=RsiSetting.period_of_daily_ema, adjust=False).mean()
+        ema_up = up.ewm(com=self.strategy.period, adjust=False).mean()
+        ema_down = down.ewm(com=self.strategy.period, adjust=False).mean()
         rs = ema_up / ema_down
         rsi = (100 - (100 / (1 + rs))).round(2)
 

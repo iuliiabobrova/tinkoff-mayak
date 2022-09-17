@@ -96,12 +96,14 @@ async def get_figi_with_inactual_historic_data(cls, period: int = None) -> Tuple
     figi_set = await Share.get_all_figi_set()
 
     async def apply_filter(figi) -> bool:
-        args = [arg for arg in [period, figi] if arg]
+        args = [arg for arg in [period, figi] if arg]  # берем только not None args (period или figi)
         return not await historic_data_is_actual(cls, *args)
 
     async def async_filter(async_func, figi):
         if await async_func(figi):
             return figi
 
+    # gather создаёт для каждого figi свой async Task, внутри которого вызывается async_filter, которая применяет
+    # переданную функцию фильтрации (apply_filter) для переданного figi (параметра)
     figi_with_inactual_data: Tuple = await asyncio.gather(*[async_filter(apply_filter, figi) for figi in figi_set])
     return figi_with_inactual_data
